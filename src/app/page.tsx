@@ -25,6 +25,7 @@ import { CiSearch } from "react-icons/ci";
 import { MdNavigateNext } from "react-icons/md";
 import { HiRefresh } from "react-icons/hi";
 
+import { stringToColor } from "@/lib/utils";
 
 
 import { v4 as uuidv4 } from 'uuid';
@@ -189,25 +190,7 @@ export default function Home() {
     setProjects(sorted);
   }
 
-  const stringToColor = (str: string) => {
-    // 1. สร้าง Hash จาก String
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      // ใช้ bitwise operator เพื่อสร้างตัวเลขที่เฉพาะตัวจากตัวอักษร
-      hash = str.charCodeAt(i) + ((hash << 3) - hash);
-    }
-
-    // 2. รายการสีที่ต้องการให้สุ่ม (Tailwind Colors หรือ Hex)
-    const colors = [
-      '#ff316d', '#ffcf4e', '', '#00da9c', '#008db6',
-      '#ffa23e', '#A9B388', '#FEFAE0', '#E9EDC9', '#CCD5AE'
-    ];
-
-    // 3. ใช้ Modulo เพื่อเลือก Index จาก Array สี
-    const index = Math.abs(hash) % colors.length;
-    return colors[index];
-  };
-
+ 
 
   useEffect(() => {
     SetGroup(groups[0])
@@ -286,8 +269,8 @@ export default function Home() {
 
                     <div className="w-4/5 flex flex-col gap-2">
                       <b>{item.name}</b>
-                      <p className="text-gray-500 pl-3">{item.description}</p>
-                      <div className={`flex flex-row gap-3 pl-3 `}>
+                      <p className="text-gray-500 pl-3 line-clamp-3">{item.description}</p>
+                      <div className={`flex flex-row gap-3 pl-3 flex-wrap `}>
                         {item.tag.map((tagi: string, idx: number) => {
                           const tagColor = stringToColor(tagi); // ฟังก์ชัน Hash ที่เราเขียนกัน
 
@@ -307,9 +290,9 @@ export default function Home() {
                     </div>
 
                     <div className="w-1/5">
-                      <div className="flex flex-row border rounded-3xl p-1">
+                      <div className="flex flex-row border rounded-3xl p-1 justify-center items-center">
                         <p className="text-lg"><PiMagicWandThin /></p>
-                        <p className="">{item.compatible}%</p>
+                        <p className="text-xs">{item.compatible}%</p>
 
                       </div>
                     </div>

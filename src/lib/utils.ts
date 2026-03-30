@@ -8,18 +8,18 @@ export const stringToColor = (str: string): string => {
 
     const colors = [
         // --- 5 สีเดิมของคุณ (Base Theme) ---
-        '#D8D2C2', // Creamy Grey (color-1)
-        '#BE8C74', // Soft Brown (color-2)
-        '#B17457', // Terra Cotta (color-3)
-        '#896C6C', // Warm Taupe (color-4)
-        '#4A4947', // Deep Charcoal (color-5)
+       '#FF316D', // Vibrant Pink (เดิม) - อ่านเข้ม/ขาวได้
+        '#FFCF4E', // Bright Yellow (เดิม) - **แนะนำตัวอักษรสีดำ**
+        '#00DA9C', // Teal Green (เดิม) - อ่านเข้ม/ขาวได้
+        '#008DB6', // Cerulean Blue (เดิม) - อ่านเข้ม/ขาวได้
+        '#FFA23E', // Bright Orange (เดิม) - อ่านเข้ม/ขาวได้
 
-        // --- 5 สีใหม่ที่เพิ่มให้เข้ากัน (Complementary Earth Tones) ---
-        '#626F47', // Moss Green (ดูเป็นธรรมชาติ เข้ากับงานวิจัย/วิชาการ)
-        '#798645', // Olive (โทนอุ่น ช่วยให้ Tag ดูเด่นแต่ไม่โดด)
-        '#9A7E6F', // Muted Clay (เชื่อมระหว่างน้ำตาลและเทา)
-        '#545B64', // Slate Blue-Grey (ให้ความรู้สึก Tech/Engineering)
-        '#A68966'  // Golden Oak (เพิ่มความสว่างแบบหรูหรา)
+        // --- 5 สีใหม่ที่เพิ่มให้เข้าโทน (Vibrant & Readable Completers) ---
+        '#9C27B0', // Vivid Purple (ม่วงสด) - อ่านขาวได้ดี
+        '#4CAF50', // Lime Green (เขียวมะนาวเข้ม) - อ่านเข้ม/ขาวได้
+        '#FF5722', // Deep Orange (ส้มแดง) - อ่านขาวได้ดี
+        '#00BCD4', // Cyan Blue (ฟ้าไซแอน) - **แนะนำตัวอักษรสีดำ**
+        '#EA1E63'  // Deep Pink/Rose (ชมพูเข้ม) - อ่านขาวได้ดี
     ];
 
     const index = Math.abs(hash) % colors.length;
