@@ -82,8 +82,8 @@ export default function Home() {
             <div className="w-3/4 bg-white   shadow-xl h-20 rounded-3xl">
             <div className="w-full px-2  h-full flex flex-row item-center justify-between">
                     <p className="text-4xl flex justify-center items-center"><FiBell /></p>
-                    <p className="h-auto flex justify-center items-center text-2xl font-bold">Join Request</p>
-                    <p className="h-auto flex justify-center items-center text-white "><p className="bg-red-500 rounded-full text-center w-6 h-6">n</p></p>
+                    <p className="h-auto flex justify-center items-center text-xl font-bold">Join Request</p>
+                    <div className="h-auto flex justify-center items-center text-white "><p className="bg-red-500 rounded-full text-center w-6 h-6">n</p></div>
                     <p className="text-4xl flex justify-center items-center"> <MdNavigateNext /></p>
                     
             </div>
