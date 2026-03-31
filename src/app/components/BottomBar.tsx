@@ -11,6 +11,11 @@ import { IoPerson } from "react-icons/io5";
 export default function BottomBar() {
     const pathname = usePathname();
 
+    // 🛑 ตรวจสอบ Path: ถ้าขึ้นต้นด้วย /auth ให้คืนค่า null (ไม่แสดงอะไรเลย)
+    if (pathname?.startsWith('/auth')) {
+        return null;
+    }
+
     // จัดกลุ่มเมนูเพื่อง่ายต่อการเพิ่ม/ลดในอนาคต
     const navItems = [
         { name: "Projects", path: "/", icon: <ImMagicWand className="text-lg md:text-xl" /> },
