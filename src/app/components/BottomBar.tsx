@@ -32,7 +32,7 @@ export default function BottomBar() {
                     <p>Projects</p>
 
                 </Link>
-                <Link href="/" className={`${pathname=="/myteam"?"bg-[var(--color-3)]":""} rounded-xl py-1 flex flex-col items-center justify-center w-1/4`}>
+                <Link href="/myteam" className={`${pathname=="/myteam"?"bg-[var(--color-3)]":""} rounded-xl py-1 flex flex-col items-center justify-center w-1/4`}>
                     <BsPeopleFill />
                     <p>Teams</p>
                 </Link>
@@ -40,7 +40,7 @@ export default function BottomBar() {
                     <IoMdCreate />
                     <p>Create</p>
                 </Link>
-                <Link href="" className={`${pathname=="/profile"?"bg-[var(--color-3)]":""} rounded-xl py-1 flex flex-col items-center justify-center w-1/4`}>
+                <Link href="/profile" className={`${pathname=="/profile"?"bg-[var(--color-3)]":""} rounded-xl py-1 flex flex-col items-center justify-center w-1/4`}>
                     <IoPerson />
                     <p>Profile</p>
                 </Link>
