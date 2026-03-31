@@ -24,19 +24,11 @@ import { PiMagicWandThin } from "react-icons/pi";
 import { CiSearch } from "react-icons/ci";
 import { MdNavigateNext } from "react-icons/md";
 import { HiRefresh } from "react-icons/hi";
+import { BsStars } from "react-icons/bs";
 
 import { stringToColor } from "@/lib/utils";
 
-
-import { v4 as uuidv4 } from 'uuid';
-
-
-
-
-
 export default function Home() {
-
-
   const personal_data = {
     'Eating': 28,
     'Drinking': 48,
@@ -50,42 +42,30 @@ export default function Home() {
   const data = {
     labels: Object.keys(personal_data),
     datasets: [{
-      label: 'My Second Dataset',
+      label: 'My Score',
       data: Object.values(personal_data),
       fill: true,
-      backgroundColor: 'rgba(54, 162, 235, 0.2)',
-      borderColor: 'rgb(54, 162, 235)',
-      pointBackgroundColor: 'rgb(54, 162, 235)',
+      backgroundColor: 'rgba(165, 243, 252, 0.4)',
+      borderColor: 'rgb(34, 211, 238)',
+      pointBackgroundColor: 'rgb(34, 211, 238)',
       pointBorderColor: '#fff',
       pointHoverBackgroundColor: '#fff',
-      pointHoverBorderColor: 'rgb(54, 162, 235)'
+      pointHoverBorderColor: 'rgb(34, 211, 238)',
+      borderWidth: 2,
     }]
   };
-  const config = {
-    type: 'radar',
-    data: data,
-    options: {
-      elements: {
-        line: {
-          borderWidth: 3
-        }
-      }
-    },
-  };
+  
   const options = {
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        display: false, // กำหนดเป็น false เพื่อซ่อน Legend
-      },
+      legend: { display: false },
     },
     scales: {
       r: {
-        angleLines: {
-          display: true
-        },
-        suggestedMin: 0,
-        suggestedMax: 100
+        angleLines: { display: true, color: '#f3f4f6' },
+        grid: { color: '#f3f4f6' },
+        pointLabels: { font: { size: 10 }, color: '#6b7280' },
+        ticks: { display: false, max: 100, min: 0 }
       }
     }
   };
@@ -150,10 +130,7 @@ export default function Home() {
     {
       "id": 7,
       "group": "Subject",
-      "filter": {
-        "subject_code": "02204281",
-        "sec": 712
-      },
+      "filter": { "subject_code": "02204281", "sec": 712 },
       "name": "กลุ่มพระเจ้าเอกาทศรถ",
       "description": "มาเรียนคนเดียว หากลุ่มอยู่ด้วยครับ",
       "compatible": 87,
@@ -161,161 +138,171 @@ export default function Home() {
       "members": "1/3"
     },
     {
-      "id": 7,
+      "id": 8,
       "group": "Subject",
-      "filter": {
-        "subject_code": "02717112",
-        "sec": 700
-      },
+      "filter": { "subject_code": "02717112", "sec": 700 },
       "name": "กลุ่มพระเจ้าเสือ",
       "description": "มาเรียนคนเดียว หากลุ่มอยู่ด้วยครับ",
       "compatible": 87,
       "tag": ["Study", "Creative"],
       "members": "1/3"
     }
-
-
-  ]
-  const [group, SetGroup] = useState("");
-  const [projects, setProjects] = useState<any[]>([]); // กำหนดค่าเริ่มต้นเป็น Array ว่าง
+  ];
   
-  function fetchData(group: string) {
-    // 1. Filter ข้อมูลออกมาก่อน
-    const filtered = projectsData.filter((item) => item.group === group);
-
-    // 2. Sort ข้อมูลจากตัวแปรที่ filter มาแล้ว (ใช้ Spread Operator เพื่อไม่ให้กระทบ Data ต้นฉบับ)
-    const sorted = [...filtered].sort((a, b) => b.compatible - a.compatible);
-
-    // 3. อัปเดต State ครั้งเดียวด้วยข้อมูลที่พร้อมแล้ว
-    setProjects(sorted);
-  }
-
- 
+  const [group, setGroup] = useState(groups[0]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [projects, setProjects] = useState<any[]>([]);
 
   useEffect(() => {
-    SetGroup(groups[0])
-    const filtered = projectsData.filter((item) => item.group === groups[0]);
-
-    // 2. Sort ข้อมูลจากตัวแปรที่ filter มาแล้ว (ใช้ Spread Operator เพื่อไม่ให้กระทบ Data ต้นฉบับ)
+    let filtered = projectsData.filter((item) => item.group === group);
+    if (searchQuery.trim() !== "") {
+      const lowerQuery = searchQuery.toLowerCase();
+      filtered = filtered.filter((item) => 
+        item.name.toLowerCase().includes(lowerQuery) ||
+        item.description.toLowerCase().includes(lowerQuery) ||
+        item.tag.some((t: string) => t.toLowerCase().includes(lowerQuery))
+      );
+    }
     const sorted = [...filtered].sort((a, b) => b.compatible - a.compatible);
-
-    // 3. อัปเดต State ครั้งเดียวด้วยข้อมูลที่พร้อมแล้ว
     setProjects(sorted);
-
-  }, [])
+  }, [group, searchQuery]);
 
   return (
-    <div className="flex flex-col  items-center gap-4 w-full pb-24 pt-5">
+    <div className="min-h-screen bg-[#FDFCF8] flex justify-center w-full font-sans text-[#1A1A1A]">
+      <div className="w-full max-w-[1300px] px-6 md:px-10 py-12 flex flex-col gap-8 md:gap-10">
 
+        {/* --- Top Section: Grid Layout --- 
+            ใช้ Grid สลับตำแหน่ง: 
+            มือถือ -> 1.คำทักทาย 2.การ์ด 3.แท็บ
+            คอม -> ซ้าย(คำทักทาย, แท็บ) ขวา(การ์ด)
+        */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-y-6 lg:gap-x-10 w-full">
+          
+          {/* 1. Greeting (บนสุดในมือถือ / ซ้ายบนในคอม) */}
+          <div className="order-1 lg:col-span-5 lg:col-start-1 lg:row-start-1 flex flex-col justify-end lg:pb-4">
+            <h1 className="text-4xl md:text-5xl lg:text-[56px] font-bold leading-tight tracking-tight">
+              Hello, Mr. Beemo<br/>Nikifovrolf
+            </h1>
+          </div>
 
-      <div className="bg-white w-4/5 flex flex-col items-center justify-center  p-8 rounded-3xl shadow-lg">
-        <div className="flex flex-row items-center justify-center gap-3">
-          <span className="text-xl"><PiMagicWandThin /></span>
-          <p className="font-extralight">Your Personality Profile</p>
-        </div>
-        <div className="w-60  ">
-          <Radar data={data} options={options} />
-        </div>
-        <div className="w-full text-xs">
-          {Object.keys(personal_data).map((item, i) => <div key={uuidv4()} className="flex flex-row gap-3">
-            <p>{i + 1}</p>
-            <div className="flex flex-row  w-full justify-between">
-              <p>{item}</p>
-              <p>{personal_data[item as keyof typeof personal_data]} %</p>
+          {/* 2. Profile Card (ตรงกลางในมือถือ / ขวาในคอม กินพื้นที่ 2 แถว) */}
+          <div className="order-2 lg:col-span-7 lg:col-start-6 lg:row-start-1 lg:row-span-2 bg-white rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-6 md:p-8 flex flex-col sm:flex-row items-center gap-6 md:gap-8">
+            
+            {/* Stats */}
+            <div className="w-full sm:w-1/2 flex flex-col gap-4">
+              <div className="flex flex-row items-center gap-2 mb-2 text-gray-500">
+                  <BsStars className="text-lg" />
+                  <p className="text-sm font-medium">Your Personality Profile</p>
+              </div>
+              <div className="flex flex-col gap-3 text-xs md:text-sm text-gray-500 font-medium">
+                {Object.keys(personal_data).map((item) => (
+                  <div key={item} className="flex flex-row justify-between items-center w-full pr-4">
+                    <p>{item}</p>
+                    <p className="text-gray-300">{personal_data[item as keyof typeof personal_data]} %</p>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>)}
-        </div>
-      </div>
 
-      <div className="w-4/5 flex flex-row items-center justify-between">
-        {groups.map(item =>
-          <div key={uuidv4()} onClick={() => { fetchData(item); SetGroup(item) }} className={`w-1/4 hover:cursor-pointer ${item == group ? "bg-[var(--color-2)]" : "bg-white"} h-10 rounded-3xl shadow-lg`}>
-            <p className="flex justify-center items-center w-full h-full px-4 text-sm">{item}</p>
-          </div>
-        )}
-
-      </div>
-
-
-      <div className="w-4/5">
-        <div className="flex flex-row  w-full justify-between items-center text-sm ">
-          <b>Expolre Projects</b>
-          <div className="flex flex-row gap-4 items-center justify-center">
-            <span className="flex flex-row gap-2 hover:cursor-pointer">
-              <p className=" text-[var(--color-2)]">refresh</p>
-              <p className="text-lg "> <HiRefresh /></p>
-            </span>
-            <p>{projects.length} open</p>
-          </div>
-        </div>
-        {group=="Subject"?<div className="w-full flex justify-center items-center mt-5">
-          <div className="bg-white h-10 w-4/5 flex flex-row items-center justify-center   rounded-3xl shadow-lg px-8">
-            <input type="text" className="l h-full w-full hover:border-transparent focus:outline-none focus:ring-0 " placeholder="Search" />
-            <CiSearch className="size-6 " />
-          </div>
-        </div>:""}
-        <div className="w-full flex items-center justify-center mt-5 ">
-          {projects.length == 0 ?
-            <div className="w-full flex justify-center items-center flex-col">
-              <ImFilesEmpty />
-              <p className="text-sm">Sorry No projects for you now</p>
+            {/* Radar Chart */}
+            <div className="w-full sm:w-1/2 flex justify-center items-center h-56 md:h-64">
+                <Radar data={data} options={options} />
             </div>
-            :
-            <div className="flex flex-col w-full gap-5 h-full">
-              {projects.map(item =>
-                <div key={uuidv4()} className="bg-white w-full text-sm rounded-3xl p-5  gap-5">
+          </div>
 
-                  <div className="w-full  flex flex-row justify-between border-b border-gray-300 pb-5">
+          {/* 3. Tabs (ล่างสุดในมือถือ / ซ้ายล่างในคอม) */}
+          <div className="order-3 lg:col-span-5 lg:col-start-1 lg:row-start-2 flex items-start">
+            <div className="flex flex-row gap-3 w-full pb-2 hide-scroll">
+              {groups.map(item => (
+                <button 
+                  key={item} 
+                  onClick={() => { setGroup(item); setSearchQuery(""); }} 
+                  className={`px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${
+                    item === group 
+                      ? "bg-[#91B2C3] text-white shadow-sm"
+                      : "bg-[#F3F2EE] text-gray-400 hover:bg-gray-200"
+                  }`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
 
-                    <div className="w-4/5 flex flex-col gap-2">
-                      <b>{item.name}</b>
-                      <p className="text-gray-500 pl-3 line-clamp-3">{item.description}</p>
-                      <div className={`flex flex-row gap-3 pl-3 flex-wrap `}>
-                        {item.tag.map((tagi: string, idx: number) => {
-                          const tagColor = stringToColor(tagi); // ฟังก์ชัน Hash ที่เราเขียนกัน
+        {/* --- Middle Section: Search Bar --- */}
+        <div className="w-full bg-[#F6F5F2] rounded-full h-14 md:h-16 flex items-center px-6 gap-4 border border-transparent focus-within:border-gray-200 focus-within:bg-white transition-all shadow-inner mt-2">
+          <CiSearch className="text-2xl text-gray-400" />
+          <input 
+            type="text" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-full w-full bg-transparent outline-none text-base text-gray-600 placeholder:text-gray-400" 
+            placeholder="Search projects" 
+          />
+        </div>
 
-                          return (
-                            <p
-                              key={uuidv4()}
-                              style={{ backgroundColor: tagColor }}
-                              className="px-2 py-0.5 rounded-full text-[10px] text-white font-medium shadow-sm"
-                            >
-                              #{tagi}
-                            </p>
-                          );
-                        })}
+        {/* --- Bottom Section: Projects Grid --- */}
+        <div className="w-full flex flex-col gap-6">
+          <div className="flex flex-row justify-between items-end px-2">
+            <h2 className="text-xl font-bold">Explore Projects</h2>
+            <div className="bg-[#CFBCA7] text-[#4A3B2C] px-4 py-1.5 rounded-full text-xs font-bold">
+              {projects.length} open
+            </div>
+          </div>
 
-                      </div>
-
+          {projects.length === 0 ? (
+            <div className="w-full flex justify-center items-center py-20 text-gray-400 flex-col gap-3">
+              <ImFilesEmpty className="text-5xl opacity-30" />
+              <p>{searchQuery ? "No projects found" : "Sorry, no projects for you right now"}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+              {projects.map((item) => (
+                <div key={item.id} className="bg-white rounded-[24px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-50 flex flex-col h-full hover:shadow-lg transition-shadow">
+                  <div className="flex justify-between items-start gap-4 mb-3">
+                    <h3 className="font-bold text-base leading-tight flex-1">{item.name}</h3>
+                    <div className="flex items-center gap-1 bg-[#D1F4F9] text-[#0E7490] px-3 py-1 rounded-full text-sm font-bold shrink-0">
+                      <BsStars />
+                      {item.compatible}%
                     </div>
-
-                    <div className="w-1/5">
-                      <div className="flex flex-row border rounded-3xl p-1 justify-center items-center">
-                        <p className="text-lg"><PiMagicWandThin /></p>
-                        <p className="text-xs">{item.compatible}%</p>
-
-                      </div>
-                    </div>
-
                   </div>
 
-                  <div className="flex items-center h-6 pt-4 w-full justify-between" >
-                    <p>{item.members.split("/")[1]} Members  needed ({item.members})</p>
-                    <p className="text-lg"><MdNavigateNext /></p>
+                  <p className="text-xs text-gray-400 line-clamp-2 mb-4 grow">
+                    {item.description}
+                  </p>
+
+                  <div className="flex flex-wrap gap-2 mb-6">
+                    {item.tag.map((tagi: string) => {
+                      const tagColors:any = {
+                        'Research': 'bg-[#FDE68A] text-[#92400E] border-[#FCD34D]',
+                        'Creative': 'bg-[#FEF08A] text-[#854D0E] border-[#FDE047]',
+                        'business': 'bg-[#BAE6FD] text-[#075985] border-[#7DD3FC]',
+                        'Study': 'bg-[#A7F3D0] text-[#065F46] border-[#6EE7B7]',
+                        'Innovation': 'bg-[#E9D5FF] text-[#6B21A8] border-[#D8B4FE]'
+                      };
+                      const colorClass = tagColors[tagi] || 'bg-gray-100 text-gray-600 border-gray-200';
+                      return (
+                        <span key={tagi} className={`px-3 py-1 text-[10px] font-bold rounded-full border ${colorClass}`}>
+                          #{tagi}
+                        </span>
+                      );
+                    })}
                   </div>
 
+                  <hr className="border-gray-100 mb-4" />
+
+                  <div className="flex justify-between items-center text-xs font-medium text-gray-400">
+                    <p>{item.members.split("/")[1]} Members needed ({item.members})</p>
+                    <MdNavigateNext className="text-xl text-gray-300" />
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
-          }
+          )}
         </div>
 
-
-
-
       </div>
-
-
     </div>
   );
 }
