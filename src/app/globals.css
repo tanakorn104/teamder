@@ -1,19 +1,80 @@
 @import "tailwindcss";
 @plugin "daisyui";
 
+/* ----------------------------------
+   1. CSS Variables (ตัวแปรสีต้นทาง)
+---------------------------------- */
 :root {
-  --background: #FAF7F0;
-  --foreground: #171717;
-  --color-1:#D8D2C2;
-  --color-2:#BE8C74;
-  --color-3:#B17457;
-  --color-4:#896C6C;
-  --color-5:#4A4947;
+  /* --- Base Colors (พื้นหลังและตัวอักษร) --- */
+  --background: #FDFCF8; /* ปรับเป็นสีครีมอ่อนตามดีไซน์ล่าสุด */
+  --foreground: #1A1A1A;
+
+  /* --- Brand Colors (5 สีหลักดั้งเดิมของคุณ) --- */
+  --color-1: #D8D2C2;
+  --color-2: #BE8C74; 
+  --color-3: #B17457;
+  --color-4: #896C6C;
+  --color-5: #4A4947;
+
+  /* --- UI Specific Colors (สีเฉพาะจุดที่เพิ่มเข้ามาใหม่) --- */
+  --color-active-bg: #91B2C3;     /* สีฟ้าตุ่นสำหรับปุ่ม Tab/BottomBar ที่ถูกเลือก */
+  --color-badge-bg: #CFBCA7;      /* สีพื้นหลัง Badge (เช่น 4 open) */
+  --color-badge-text: #4A3B2C;    /* สีตัวอักษรบน Badge */
+  --color-score-bg: #D1F4F9;      /* สีพื้นหลังเปอร์เซ็นต์ Compatible */
+  --color-score-text: #0E7490;    /* สีตัวอักษรเปอร์เซ็นต์ Compatible */
+
+  /* --- Tag Colors (10 สีโทนสดใส สำหรับหน้า Utils) --- */
+  --tag-1: #FF316D;
+  --tag-2: #FFCF4E;
+  --tag-3: #00DA9C;
+  --tag-4: #008DB6;
+  --tag-5: #FFA23E;
+  --tag-6: #9C27B0;
+  --tag-7: #4CAF50;
+  --tag-8: #FF5722;
+  --tag-9: #00BCD4;
+  --tag-10: #EA1E63;
 }
 
+/* ----------------------------------
+   2. Tailwind v4 Theme Setup
+   (แปลง CSS Var เป็น Tailwind Class)
+---------------------------------- */
+@theme {
+  /* ทำให้เรียกใช้ bg-background, text-foreground ได้ */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  
+  /* ทำให้เรียกใช้ bg-brand-1, text-brand-5, border-brand-2 ได้ */
+  --color-brand-1: var(--color-1);
+  --color-brand-2: var(--color-2);
+  --color-brand-3: var(--color-3);
+  --color-brand-4: var(--color-4);
+  --color-brand-5: var(--color-5);
 
+  /* ทำให้เรียกใช้ bg-active, text-score ได้ */
+  --color-active: var(--color-active-bg);
+  --color-badge: var(--color-badge-bg);
+  --color-badge-content: var(--color-badge-text);
+  --color-score: var(--color-score-bg);
+  --color-score-content: var(--color-score-text);
+}
 
+/* ----------------------------------
+   3. Global Styles
+---------------------------------- */
 body {
+  background-color: var(--background);
+  color: var(--foreground);
+  /* เปลี่ยนจาก Arial เป็น System Font เพื่อให้ดูทันสมัยและเข้ากับทุก OS มากขึ้น */
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
 
-  font-family: Arial, Helvetica, sans-serif;
+/* ซ่อน Scrollbar สำหรับ Element ที่ต้องปัดซ้ายขวา (เช่น แถบ Tab ในมือถือ) */
+.hide-scroll::-webkit-scrollbar {
+  display: none;
+}
+.hide-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
