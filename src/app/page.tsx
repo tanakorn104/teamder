@@ -79,7 +79,7 @@ export default function Home() {
       "name": "Al Chatbot for mistery",
       "description": "ต้องการถามแชทจีพีทีว่าทำยังไงถึงจะจีบผีตานีได้ ต้องการทฤษฎีบทนี้ครับ ใครสนใจลองกดมาได้ ",
       "compatible": 94,
-      "tag": ["Research", "Creative"],
+      "tag": ["Research", "Creative", "Mystery"],
       "members": "3/5"
     },
     {
@@ -88,7 +88,7 @@ export default function Home() {
       "name": "malatang  Campus research",
       "description": "ทำไมบริเวณร้านหม่าล่าถึงไม่มีหมาเลยคะ",
       "compatible": 82,
-      "tag": ["Research", "Creative", "business"],
+      "tag": ["Research", "Creative", "business", "Food"],
       "members": "2/5"
     },
     {
@@ -106,7 +106,7 @@ export default function Home() {
       "name": "Environment  research",
       "description": "ทำวิจัยอะไรก็ได้เกี่ยวกับสิ่งแวดล้อมค่า",
       "compatible": 87,
-      "tag": ["Research", "Creative"],
+      "tag": ["Research", "Environment", "Science"],
       "members": "1/3"
     },
     {
@@ -124,7 +124,7 @@ export default function Home() {
       "name": "Chem is try",
       "description": "เอกเคมี ใครสะดวกมาช่วยสอนหน่อยจ้า จะตายแล่ว ติวออนไลน์คับ แต่ถ้าสะดวกเจอก็ค่อยว่ากัน ",
       "compatible": 76,
-      "tag": ["Research", "Creative", "Innovation", "business"],
+      "tag": ["Tutor", "Chemistry", "Study"],
       "members": "1/3"
     },
     {
@@ -168,27 +168,18 @@ export default function Home() {
   }, [group, searchQuery]);
 
   return (
-    <div className="min-h-screen bg-[#FDFCF8] flex justify-center w-full font-sans text-[#1A1A1A]">
+    <div className="min-h-screen bg-background flex justify-center w-full font-sans text-foreground">
       <div className="w-full max-w-[1300px] px-6 md:px-10 py-12 flex flex-col gap-8 md:gap-10">
 
-        {/* --- Top Section: Grid Layout --- 
-            ใช้ Grid สลับตำแหน่ง: 
-            มือถือ -> 1.คำทักทาย 2.การ์ด 3.แท็บ
-            คอม -> ซ้าย(คำทักทาย, แท็บ) ขวา(การ์ด)
-        */}
+        {/* --- Top Section: Grid Layout --- */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-y-6 lg:gap-x-10 w-full">
-          
-          {/* 1. Greeting (บนสุดในมือถือ / ซ้ายบนในคอม) */}
           <div className="order-1 lg:col-span-5 lg:col-start-1 lg:row-start-1 flex flex-col justify-end lg:pb-4">
             <h1 className="text-4xl md:text-5xl lg:text-[56px] font-bold leading-tight tracking-tight">
               Hello, Mr. Beemo<br/>Nikifovrolf
             </h1>
           </div>
 
-          {/* 2. Profile Card (ตรงกลางในมือถือ / ขวาในคอม กินพื้นที่ 2 แถว) */}
           <div className="order-2 lg:col-span-7 lg:col-start-6 lg:row-start-1 lg:row-span-2 bg-white rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-6 md:p-8 flex flex-col sm:flex-row items-center gap-6 md:gap-8">
-            
-            {/* Stats */}
             <div className="w-full sm:w-1/2 flex flex-col gap-4">
               <div className="flex flex-row items-center gap-2 mb-2 text-gray-500">
                   <BsStars className="text-lg" />
@@ -204,13 +195,11 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Radar Chart */}
             <div className="w-full sm:w-1/2 flex justify-center items-center h-56 md:h-64">
                 <Radar data={data} options={options} />
             </div>
           </div>
 
-          {/* 3. Tabs (ล่างสุดในมือถือ / ซ้ายล่างในคอม) */}
           <div className="order-3 lg:col-span-5 lg:col-start-1 lg:row-start-2 flex items-start">
             <div className="flex flex-row gap-3 w-full pb-2 hide-scroll">
               {groups.map(item => (
@@ -219,8 +208,8 @@ export default function Home() {
                   onClick={() => { setGroup(item); setSearchQuery(""); }} 
                   className={`px-6 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${
                     item === group 
-                      ? "bg-[#91B2C3] text-white shadow-sm"
-                      : "bg-[#F3F2EE] text-gray-400 hover:bg-gray-200"
+                      ? "bg-active text-white shadow-sm"
+                      : "bg-gray-100 text-gray-400 hover:bg-gray-200"
                   }`}
                 >
                   {item}
@@ -231,7 +220,7 @@ export default function Home() {
         </div>
 
         {/* --- Middle Section: Search Bar --- */}
-        <div className="w-full bg-[#F6F5F2] rounded-full h-14 md:h-16 flex items-center px-6 gap-4 border border-transparent focus-within:border-gray-200 focus-within:bg-white transition-all shadow-inner mt-2">
+        <div className="w-full bg-gray-50 rounded-full h-14 md:h-16 flex items-center px-6 gap-4 border border-transparent focus-within:border-gray-200 focus-within:bg-white transition-all shadow-inner mt-2">
           <CiSearch className="text-2xl text-gray-400" />
           <input 
             type="text" 
@@ -246,7 +235,7 @@ export default function Home() {
         <div className="w-full flex flex-col gap-6">
           <div className="flex flex-row justify-between items-end px-2">
             <h2 className="text-xl font-bold">Explore Projects</h2>
-            <div className="bg-[#CFBCA7] text-[#4A3B2C] px-4 py-1.5 rounded-full text-xs font-bold">
+            <div className="bg-badge text-badge-content px-4 py-1.5 rounded-full text-xs font-bold">
               {projects.length} open
             </div>
           </div>
@@ -262,7 +251,7 @@ export default function Home() {
                 <div key={item.id} className="bg-white rounded-[24px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-50 flex flex-col h-full hover:shadow-lg transition-shadow">
                   <div className="flex justify-between items-start gap-4 mb-3">
                     <h3 className="font-bold text-base leading-tight flex-1">{item.name}</h3>
-                    <div className="flex items-center gap-1 bg-[#D1F4F9] text-[#0E7490] px-3 py-1 rounded-full text-sm font-bold shrink-0">
+                    <div className="flex items-center gap-1 bg-score text-score-content px-3 py-1 rounded-full text-sm font-bold shrink-0">
                       <BsStars />
                       {item.compatible}%
                     </div>
@@ -274,16 +263,20 @@ export default function Home() {
 
                   <div className="flex flex-wrap gap-2 mb-6">
                     {item.tag.map((tagi: string) => {
-                      const tagColors:any = {
-                        'Research': 'bg-[#FDE68A] text-[#92400E] border-[#FCD34D]',
-                        'Creative': 'bg-[#FEF08A] text-[#854D0E] border-[#FDE047]',
-                        'business': 'bg-[#BAE6FD] text-[#075985] border-[#7DD3FC]',
-                        'Study': 'bg-[#A7F3D0] text-[#065F46] border-[#6EE7B7]',
-                        'Innovation': 'bg-[#E9D5FF] text-[#6B21A8] border-[#D8B4FE]'
-                      };
-                      const colorClass = tagColors[tagi] || 'bg-gray-100 text-gray-600 border-gray-200';
+                      // เรียกใช้ฟังก์ชันเพื่อให้ได้ Object ที่มี .bg, .text, .border ทันที
+                      const tagTheme = stringToColor(tagi);
+                      
                       return (
-                        <span key={tagi} className={`px-3 py-1 text-[10px] font-bold rounded-full border ${colorClass}`}>
+                        <span 
+                          key={tagi} 
+                          // ดึงค่ามาลง Inline Style ให้สวยงามและอ่านง่าย
+                          style={{ 
+                            backgroundColor: tagTheme.bg,
+                            color: tagTheme.text,
+                            borderColor: tagTheme.border 
+                          }}
+                          className="px-3 py-1 text-[10px] font-bold rounded-full border shadow-sm"
+                        >
                           #{tagi}
                         </span>
                       );
