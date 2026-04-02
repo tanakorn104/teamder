@@ -11,17 +11,16 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized: No token" }, { status: 401 });
         }
 
-        // 1. ดึงโปรไฟล์จาก Google
         const googleProfile = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
             headers: { Authorization: `Bearer ${token}` }
         });
         const { email, name, picture } = googleProfile.data;
 
-        // 2. จัดการ Database
         const connection = await db();
         try {
+            // ✨ จุดที่ 1: แก้ไข SQL ให้ดึงข้อมูลจากตาราง user_profiles มาให้ครบ
             const [existingUsers]: any = await connection.execute(
-                `SELECT u.id, up.primary_role 
+                `SELECT u.id, up.primary_role, up.province, up.district, up.user_description, up.profile_image
                  FROM users u 
                  LEFT JOIN user_profiles up ON u.id = up.user_id_ref 
                  WHERE u.email = ?`,
@@ -29,10 +28,11 @@ export async function GET(request: NextRequest) {
             );
 
             let userData;
+            const safeName = name || 'Google User'; 
 
             if (existingUsers.length === 0) {
+                // --- กรณี: ผู้ใช้ใหม่ ---
                 const newShortId = `u_${Date.now().toString().slice(-6)}`;
-                const safeName = name || 'Google User'; // กันเหนียวกรณี Google ไม่ส่งชื่อมา
                 
                 const [insertUser]: any = await connection.execute(
                     "INSERT INTO users (user_id, email, full_name) VALUES (?, ?, ?)",
@@ -45,13 +45,37 @@ export async function GET(request: NextRequest) {
                     [newInternalId, 1, 'New Member', picture || null]
                 );
 
-                userData = { email, full_name: safeName, primary_role: 'New Member' };
+                userData = { 
+                    id: newInternalId, 
+                    email, 
+                    full_name: safeName, 
+                    primary_role: 'New Member',
+                    province: '',
+                    district: '',
+                    user_description: '',
+                    picture: picture || null
+                };
             } else {
+                // --- กรณี: ผู้ใช้เดิม ---
                 await connection.execute(
                     "UPDATE users SET full_name = ? WHERE email = ?",
-                    [name, email]
+                    [safeName, email]
                 );
-                userData = { email, full_name: name, primary_role: existingUsers[0].primary_role };
+                
+                const dbUser = existingUsers[0];
+
+                // ✨ จุดที่ 2: แมปปิงข้อมูลที่ดึงมาส่งกลับไปให้ Frontend
+                userData = { 
+                    id: dbUser.id, 
+                    email, 
+                    full_name: safeName, 
+                    primary_role: dbUser.primary_role || '',
+                    province: dbUser.province || '',
+                    district: dbUser.district || '',
+                    user_description: dbUser.user_description || '',
+                    // ให้ความสำคัญกับรูปใน DB ก่อน ถ้าไม่มีค่อยใช้รูปจาก Google
+                    picture: dbUser.profile_image || picture || null 
+                };
             }
 
             return NextResponse.json({ user: userData });
@@ -59,12 +83,10 @@ export async function GET(request: NextRequest) {
             await connection.end();
         }
     } catch (error: any) {
-        // ✨ จุดสำคัญ: พ่น Error ออกมาให้เห็นชัดๆ ว่าพังเพราะ Google หรือพังเพราะ Database MySQL
         console.error("🚨 [Auth/Me Error]:", error.response?.data || error.message || error);
-        
         return NextResponse.json({ 
             error: "Internal Error in /auth/me",
             details: error.response?.data || error.message || String(error)
-        }, { status: 500 }); // เปลี่ยนเป็น 500 เพื่อบอกว่าเป็นบั๊กฝั่ง Server
+        }, { status: 500 });
     }
 }
