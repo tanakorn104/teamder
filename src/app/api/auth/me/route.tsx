@@ -11,16 +11,18 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized: No token" }, { status: 401 });
         }
 
-        const googleProfile = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
+       const googleProfile = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
             headers: { Authorization: `Bearer ${token}` }
         });
-        const { email, name, picture } = googleProfile.data;
+        
+        // ✨ แก้ตรงนี้: ดึงตัวแปร sub ออกมาด้วย
+        const { sub, email, name, picture } = googleProfile.data;
 
+        // 2. จัดการ Database
         const connection = await db();
         try {
-            // ✨ จุดที่ 1: แก้ไข SQL ให้ดึงข้อมูลจากตาราง user_profiles มาให้ครบ
             const [existingUsers]: any = await connection.execute(
-                `SELECT u.id, up.primary_role, up.province, up.district, up.user_description, up.profile_image
+                `SELECT u.id, up.primary_role, up.province, up.district, up.user_description, up.profile_image 
                  FROM users u 
                  LEFT JOIN user_profiles up ON u.id = up.user_id_ref 
                  WHERE u.email = ?`,
@@ -28,15 +30,16 @@ export async function GET(request: NextRequest) {
             );
 
             let userData;
-            const safeName = name || 'Google User'; 
+            const safeName = name || 'Google User';
 
             if (existingUsers.length === 0) {
                 // --- กรณี: ผู้ใช้ใหม่ ---
-                const newShortId = `u_${Date.now().toString().slice(-6)}`;
+                // ✨ แก้ตรงนี้: ใช้ sub ของ Google เป็น user_id เลย (ถ้าไม่มีจริงๆ ค่อยเจนสำรอง)
+                const googleSubId = sub || `u_${Date.now().toString().slice(-6)}`;
                 
                 const [insertUser]: any = await connection.execute(
                     "INSERT INTO users (user_id, email, full_name) VALUES (?, ?, ?)",
-                    [newShortId, email, safeName]
+                    [googleSubId, email, safeName] // 👈 ยัด googleSubId ลงตาราง
                 );
                 const newInternalId = insertUser.insertId;
 
