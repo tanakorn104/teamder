@@ -4,19 +4,18 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import axios from "axios";
-
 import roleData from "../../data/roles.json"; 
 
 // @ts-ignore
 import { searchAddressByDistrict, searchAddressByZipcode } from 'thai-address-database';
-
-import { BiLogOut, BiEditAlt, BiSave, BiX, BiMapPin } from "react-icons/bi";
-import { IoPersonOutline, IoBriefcaseOutline } from "react-icons/io5";
+import { BiLogOut, BiEditAlt, BiSave, BiX, BiMapPin, BiBuildings } from "react-icons/bi";
+import { IoPersonOutline, IoBriefcaseOutline, IoDocumentTextOutline } from "react-icons/io5";
 
 export default function Profile() {
     const router = useRouter();
     const [user, setUser] = useState<any>(null);
     const [allRoles, setAllRoles] = useState<string[]>([]);
+    const [institutions, setInstitutions] = useState<any[]>([]); // สำหรับเก็บรายชื่อมหาลัย
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -30,25 +29,26 @@ export default function Profile() {
         province: "",
         district: "",
         subdistrict: "",
-        zipcode: ""
+        zipcode: "",
+        institution_id: 1 // Default
     });
 
     useEffect(() => {
-        // ข้อมูล roleData เป็น Array แบบ 1 มิติที่คลีนแล้ว
         setAllRoles(roleData);
 
-        const fetchMe = async () => {
+        const fetchData = async () => {
             try {
-                // 🚀 เอาแคชออกด้วยการเติม Timestamp และกำหนด Headers
+                // 1. ดึงข้อมูล Profile ตัวเอง
                 const timestamp = new Date().getTime();
-                const response = await fetch(`/api/auth/me?t=${timestamp}`, { 
-                    cache: 'no-store',
-                    headers: {
-                        'Pragma': 'no-cache',
-                        'Cache-Control': 'no-cache'
-                    }
-                });
+                const response = await fetch(`/api/auth/me?t=${timestamp}`, { cache: 'no-store' });
                 
+                // 2. ดึงข้อมูลมหาวิทยาลัยทั้งหมด (สร้าง API เพิ่มหรือดึงจากที่มีอยู่)
+                const instRes = await fetch('/api/institutions'); 
+                if (instRes.ok) {
+                    const instData = await instRes.json();
+                    setInstitutions(instData.institutions || []);
+                }
+
                 if (response.ok) {
                     const data = await response.json();
                     const u = data.user || data;
@@ -60,7 +60,8 @@ export default function Profile() {
                         province: u.province || "",
                         district: u.district || "",
                         subdistrict: u.subdistrict || "",
-                        zipcode: u.zipcode || ""
+                        zipcode: u.zipcode || "",
+                        institution_id: u.institution_id || 1
                     });
                 }
             } catch (err) { 
@@ -69,7 +70,7 @@ export default function Profile() {
                 setLoading(false); 
             }
         };
-        fetchMe();
+        fetchData();
     }, []);
 
     const handleAddressSearch = (query: string) => {
@@ -78,10 +79,7 @@ export default function Profile() {
             setAddressSuggestions([]);
             return;
         }
-        const results = [
-            ...searchAddressByDistrict(query),
-            ...searchAddressByZipcode(query)
-        ].slice(0, 8);
+        const results = [...searchAddressByDistrict(query), ...searchAddressByZipcode(query)].slice(0, 8);
         setAddressSuggestions(results);
     };
 
@@ -101,20 +99,13 @@ export default function Profile() {
         try {
             await axios.post("/api/profile", formData);
             
-            // 🚀 อัปเดต UI ทันทีโดยไม่ต้องรอโหลดหน้าเว็บใหม่
             setUser((prev: any) => ({
                 ...prev,
-                full_name: formData.full_name,
-                primary_role: formData.primary_role,
-                province: formData.province,
-                district: formData.district,
-                user_description: formData.user_description
+                ...formData
             }));
             
-            // 🚀 สั่ง Next.js เคลียร์ Router Cache หลังบ้าน
             router.refresh();
-            
-            setIsEditing(false); // ปิดโหมด Edit ทันที
+            setIsEditing(false);
         } catch (error) {
             console.error(error);
             alert("บันทึกไม่สำเร็จ");
@@ -123,7 +114,7 @@ export default function Profile() {
         }
     };
 
-    if (loading) return <div className="min-h-screen bg-background" />;
+    if (loading) return <div className="min-h-screen bg-background flex items-center justify-center font-bold text-gray-400">Loading Profile...</div>;
 
     const displayName = user?.full_name || user?.name || "Guest User";
     const displayImage = user?.profile_image || user?.picture || null;
@@ -133,8 +124,8 @@ export default function Profile() {
             <div className="w-full max-w-2xl px-6 flex flex-col gap-8">
                 
                 <div className="flex justify-between items-center">
-                    <h1 className="text-4xl font-bold">Profile</h1>
-                    <button onClick={() => setIsEditing(!isEditing)} className="text-active font-bold flex items-center gap-2">
+                    <h1 className="text-4xl font-bold italic tracking-tighter">Profile</h1>
+                    <button onClick={() => setIsEditing(!isEditing)} className="text-active font-bold flex items-center gap-2 px-4 py-2 rounded-full hover:bg-gray-100 transition-all">
                         {isEditing ? <><BiX size={28}/> Cancel</> : <><BiEditAlt size={20}/> Edit</>}
                     </button>
                 </div>
@@ -142,8 +133,9 @@ export default function Profile() {
                 <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 transition-all">
                     {isEditing ? (
                         <div className="space-y-6">
+                            {/* Name */}
                             <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-2">Name</label>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-2">Display Name</label>
                                 <input 
                                     className="w-full p-4 bg-gray-50 border border-gray-100 rounded-3xl outline-none focus:ring-2 focus:ring-active"
                                     value={formData.full_name}
@@ -151,15 +143,32 @@ export default function Profile() {
                                 />
                             </div>
 
+                            {/* Institution */}
                             <div className="flex flex-col gap-2">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-2 flex items-center gap-1">
-                                    <IoBriefcaseOutline />Career
+                                    <BiBuildings /> University / Institution
+                                </label>
+                                <select 
+                                    className="w-full p-4 bg-gray-50 border border-gray-100 rounded-3xl outline-none focus:ring-2 focus:ring-active appearance-none"
+                                    value={formData.institution_id}
+                                    onChange={(e) => setFormData({...formData, institution_id: parseInt(e.target.value)})}
+                                >
+                                    {institutions.map((inst) => (
+                                        <option key={inst.id} value={inst.id}>{inst.name_th}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Career */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-2 flex items-center gap-1">
+                                    <IoBriefcaseOutline /> Primary Role
                                 </label>
                                 <input 
                                     list="roles-options"
                                     className="w-full p-4 bg-gray-50 border border-gray-100 rounded-3xl outline-none focus:ring-2 focus:ring-active"
                                     value={formData.primary_role}
-                                    placeholder="ค้นหาอาชีพ..."
+                                    placeholder="เช่น Web Developer, Designer..."
                                     onChange={(e) => setFormData({...formData, primary_role: e.target.value})}
                                 />
                                 <datalist id="roles-options">
@@ -167,6 +176,21 @@ export default function Profile() {
                                 </datalist>
                             </div>
 
+                            {/* Bio / Description */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-2 flex items-center gap-1">
+                                    <IoDocumentTextOutline /> Bio / Description
+                                </label>
+                                <textarea 
+                                    rows={4}
+                                    className="w-full p-5 bg-gray-50 border border-gray-100 rounded-[32px] outline-none focus:ring-2 focus:ring-active resize-none"
+                                    value={formData.user_description}
+                                    placeholder="บอกเล่าเรื่องราวของคุณ ความสนใจ หรือทักษะที่มี..."
+                                    onChange={(e) => setFormData({...formData, user_description: e.target.value})}
+                                />
+                            </div>
+
+                            {/* Location */}
                             <div className="flex flex-col gap-2 relative">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-2 flex items-center gap-1">
                                     <BiMapPin /> Location Search
@@ -188,35 +212,44 @@ export default function Profile() {
                                 )}
                             </div>
 
-                            <div className="p-4 w-full bg-gray-100 rounded-2xl text-gray-500 text-sm">
-                                {formData.province || "Province"}
+                            <div className="p-4 w-full bg-gray-100 rounded-2xl text-gray-500 text-sm font-bold flex items-center gap-2">
+                                <BiMapPin /> {formData.province || "กรุณาเลือกที่อยู่ด้านบน"}
                             </div>
      
-                            <button onClick={handleSave} disabled={saving} className="w-full bg-active text-white py-5 rounded-3xl font-bold shadow-lg transition-all active:scale-[0.98]">
+                            <button onClick={handleSave} disabled={saving} className="w-full bg-active text-white py-5 rounded-3xl font-bold shadow-lg shadow-active/20 transition-all active:scale-[0.98] disabled:bg-gray-300">
                                 {saving ? "Saving..." : "Save Profile"}
                             </button>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center md:items-start gap-6">
-                            <div className="relative w-32 h-32 rounded-3xl overflow-hidden border-4 border-gray-50 bg-gray-100 flex justify-center items-center shadow-inner">
-                                {displayImage ? (
-                                    <Image src={displayImage} alt="Profile" fill className="object-cover" />
-                                ) : (
-                                    <IoPersonOutline size={64} className="text-gray-300" />
-                                )}
-                            </div>
-                            <div className="text-center md:text-left">
-                                <h2 className="text-3xl font-bold">{displayName}</h2>
-                                <p className="text-gray-500">{user?.email}</p>
-                                <div className="mt-4 flex flex-wrap gap-2 justify-center md:justify-start">
-                                    <span className="px-4 py-1.5 bg-active/10 text-active rounded-full text-xs font-black uppercase tracking-tighter">
-                                        {user?.primary_role || "No Role Set"}
-                                    </span>
-                                    <span className="px-4 py-1.5 bg-gray-50 text-gray-600 rounded-full text-xs font-bold flex items-center gap-1">
-                                        <BiMapPin /> {user?.province || "Location"}
-                                    </span>
+                            <div className="flex flex-col md:flex-row items-center gap-6 w-full">
+                                <div className="relative w-32 h-32 rounded-[40px] overflow-hidden border-4 border-gray-50 bg-gray-100 flex justify-center items-center shadow-inner shrink-0">
+                                    {displayImage ? (
+                                        <Image src={displayImage} alt="Profile" fill className="object-cover" />
+                                    ) : (
+                                        <IoPersonOutline size={64} className="text-gray-300" />
+                                    )}
+                                </div>
+                                <div className="text-center md:text-left flex-1">
+                                    <h2 className="text-3xl font-bold">{displayName}</h2>
+                                    <p className="text-gray-400 font-medium">{user?.email}</p>
+                                    <div className="mt-4 flex flex-wrap gap-2 justify-center md:justify-start">
+                                        <span className="px-4 py-1.5 bg-active/10 text-active rounded-full text-xs font-black uppercase tracking-tighter border border-active/5">
+                                            {user?.primary_role || "No Role Set"}
+                                        </span>
+                                        <span className="px-4 py-1.5 bg-gray-50 text-gray-600 rounded-full text-xs font-bold flex items-center gap-1 border border-gray-100">
+                                            <BiMapPin /> {user?.province || "No Location"}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
+                            
+                            {/* Bio Display */}
+                            {user?.user_description && (
+                                <div className="w-full mt-2 p-6 bg-gray-50 rounded-[32px] border border-gray-100">
+                                    <p className="text-gray-600 leading-relaxed text-sm whitespace-pre-wrap">{user.user_description}</p>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -224,7 +257,7 @@ export default function Profile() {
                 {!isEditing && (
                     <button 
                         onClick={() => { if(confirm("Logout?")) window.location.href = "/logout"; }} 
-                        className="w-full bg-white border border-red-100 text-red-500 py-4 rounded-2xl font-bold transition-colors hover:bg-red-50"
+                        className="w-full bg-white border border-red-50 text-red-400 py-4 rounded-[28px] font-bold transition-all hover:bg-red-50 hover:border-red-100 active:scale-[0.99]"
                     >
                         Logout
                     </button>
