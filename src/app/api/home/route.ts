@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
         const totalProjects = countRows[0].total;
         const hasMore = (offset + limit) < totalProjects;
 
-        // 2. ดึงข้อมูลจริงแบบจำกัดจำนวน (เพิ่มการดึงแท็กด้วย Subquery)
+        // 2. ดึงข้อมูลจริงแบบจำกัดจำนวน (เพิ่มการดึงแท็กด้วย Subquery และดึง max_members ออกมาด้วย)
         const sql = `SELECT 
             p.id, p.visibility_type AS \`group\`, p.title AS name, p.description, 
             (
@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
                 WHERE pt.project_id_ref = p.id
             ) AS tag,
             p.target_inst_id, p.subject_code, p.section, 
-            p.env_type, p.status, p.is_recruiting,
+            p.env_type, p.status, p.is_recruiting, p.max_members,
             (SELECT COUNT(*) FROM project_members WHERE project_id_ref = p.id AND member_status = 'ACTIVE') AS current_members
             ` + whereClause + ` ORDER BY p.id DESC LIMIT ? OFFSET ?`;
 
@@ -111,24 +111,39 @@ export async function GET(req: NextRequest) {
         const [projectRows]: any = await connection.execute(sql, fetchParams);
 
         // คำนวณ AI
+       // คำนวณ AI
         const projectsData = await Promise.all(projectRows.map(async (p: any) => {
             let compatibleScore = 0;
             try {
                 const aiPayload = await getModelInputData(p.id, userId, true);
-                if (aiPayload && aiPayload.members.length > 0) {
+                
+                if (aiPayload && aiPayload.members && aiPayload.members.length > 0) {
                     const aiRes = await fetch("https://dev.teamder.online/model/predict", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json", "X-API-Key": process.env.lightGBM_X_API_KEY || "" },
+                        headers: { 
+                            "Content-Type": "application/json", 
+                            "X-API-Key": process.env.lightGBM_X_API_KEY || "" 
+                        },
                         body: JSON.stringify(aiPayload)
                     });
+
                     if (aiRes.ok) {
                         const aiResult = await aiRes.json();
-                        if (aiResult.status === "success") compatibleScore = Math.round(aiResult.overall_match_percent);
+                        if (aiResult.status === "success") {
+                            compatibleScore = Math.round(aiResult.overall_match_percent);
+                        } else {
+                            console.log(`🔴 [AI Warning] โปรเจกต์ ${p.id}: API ตอบกลับมาแต่ไม่ success ->`, aiResult);
+                        }
+                    } else {
+                        console.log(`🔴 [AI HTTP Error] โปรเจกต์ ${p.id}: API Error Status ${aiRes.status}`);
                     }
+                } else {
+                    console.log(`🟡 [AI Skip] โปรเจกต์ ${p.id}: ไม่มีสมาชิก (หรือดึงข้อมูล payload ไม่มา) เลยข้ามการคำนวณ AI`);
                 }
-            } catch (error) { }
+            } catch (error) { 
+                console.error(`💥 [AI Crash] โปรเจกต์ ${p.id}: ระบบประมวลผล AI พัง ->`, error);
+            }
 
-            // แปลง Tag กลับเป็น Array ให้หน้าบ้านใช้
             let parsedTags = [];
             try { 
                 parsedTags = typeof p.tag === 'string' ? JSON.parse(p.tag) : (p.tag || []); 
@@ -138,7 +153,8 @@ export async function GET(req: NextRequest) {
 
             return {
                 id: p.id, group: p.group, name: p.name, description: p.description,
-                compatible: compatibleScore || 0, tag: parsedTags, members: `${p.current_members}/5`,
+                compatible: compatibleScore || 0, tag: parsedTags, 
+                members: `${p.current_members}/${p.max_members || 5}`,
                 target_inst_id: p.target_inst_id, subject_code: p.subject_code, section: p.section,
                 env_type: p.env_type,
                 status: p.status,
