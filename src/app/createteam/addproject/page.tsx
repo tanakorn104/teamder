@@ -93,7 +93,7 @@ export default function AddProject() {
             };
 
             // 🚀 ส่งข้อมูลไปที่ API ด้วย fetch (ไม่ใช้ axios)
-            const res = await fetch('/api/projects', {
+            const res = await fetch('/api/createteam', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
