@@ -32,11 +32,8 @@ export async function GET(req: NextRequest) {
              LEFT JOIN institutions i ON p.institution_id = i.id 
              WHERE p.user_id_ref = ?`, [userId]
         );
-        
-        if (profileRows.length > 0) {
-            userInstitutionId = profileRows[0].institution_id;
-            userInstName = profileRows[0].inst_name; // 👈 ดึงชื่อมาเก็บไว้
-        }
+        userInstitutionId = profileRows.length > 0 ? profileRows[0].institution_id : null;
+        userInstName = profileRows.length > 0 ? profileRows[0].inst_name : null;
 
         if (offset === 0) {
             const [userRows]: any = await connection.execute(
@@ -54,7 +51,6 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // 🚀 สร้างตัวแปรแยกเก็บเงื่อนไข WHERE เพื่อความปลอดภัย ไม่บั๊กเวลานับจำนวน
         let whereClause = ` FROM projects p WHERE p.is_recruiting = TRUE`;
         let queryParams: any[] = [];
 
@@ -76,28 +72,41 @@ export async function GET(req: NextRequest) {
             queryParams.push(envType);
         }
 
-        // กรองตาม Text Search
+        // 🚀 กรองตาม Text Search (ค้นหาจากชื่อโปรเจกต์, รายละเอียด หรือ Tag ในตารางใหม่)
         if (q) {
-            whereClause += ` AND (p.title LIKE ? OR p.description LIKE ? OR p.tags LIKE ?)`;
+            whereClause += ` AND (
+                p.title LIKE ? 
+                OR p.description LIKE ? 
+                OR EXISTS (
+                    SELECT 1 FROM project_tags pt 
+                    JOIN tags t ON pt.tag_id_ref = t.id 
+                    WHERE pt.project_id_ref = p.id AND t.tag_name LIKE ?
+                )
+            )`;
             const searchPattern = `%${q}%`;
             queryParams.push(searchPattern, searchPattern, searchPattern);
         }
 
-        // 1. นำ whereClause ไปนับจำนวนทั้งหมดก่อน
+        // 1. นับจำนวนทั้งหมด
         const countSql = `SELECT COUNT(*) as total` + whereClause;
         const [countRows]: any = await connection.execute(countSql, queryParams);
         const totalProjects = countRows[0].total;
         const hasMore = (offset + limit) < totalProjects;
 
-        // 2. นำ whereClause ไปดึงข้อมูลจริงแบบจำกัดจำนวน (LIMIT / OFFSET)
+        // 2. ดึงข้อมูลจริงแบบจำกัดจำนวน (เพิ่มการดึงแท็กด้วย Subquery)
         const sql = `SELECT 
-            p.id, p.visibility_type AS \`group\`, p.title AS name, p.description, p.tags AS tag,
+            p.id, p.visibility_type AS \`group\`, p.title AS name, p.description, 
+            (
+                SELECT COALESCE(JSON_ARRAYAGG(t.tag_name), JSON_ARRAY()) 
+                FROM project_tags pt 
+                JOIN tags t ON pt.tag_id_ref = t.id 
+                WHERE pt.project_id_ref = p.id
+            ) AS tag,
             p.target_inst_id, p.subject_code, p.section, 
             p.env_type, p.status, p.is_recruiting,
             (SELECT COUNT(*) FROM project_members WHERE project_id_ref = p.id AND member_status = 'ACTIVE') AS current_members
             ` + whereClause + ` ORDER BY p.id DESC LIMIT ? OFFSET ?`;
 
-        // แนบ Limit กับ Offset ต่อท้ายตัวแปรที่ไว้ใช้ Execute
         const fetchParams = [...queryParams, limit.toString(), offset.toString()];
         const [projectRows]: any = await connection.execute(sql, fetchParams);
 
@@ -119,8 +128,13 @@ export async function GET(req: NextRequest) {
                 }
             } catch (error) { }
 
+            // แปลง Tag กลับเป็น Array ให้หน้าบ้านใช้
             let parsedTags = [];
-            try { parsedTags = typeof p.tag === 'string' ? JSON.parse(p.tag) : p.tag; } catch (e) { }
+            try { 
+                parsedTags = typeof p.tag === 'string' ? JSON.parse(p.tag) : (p.tag || []); 
+            } catch (e) { 
+                parsedTags = []; 
+            }
 
             return {
                 id: p.id, group: p.group, name: p.name, description: p.description,
@@ -132,7 +146,6 @@ export async function GET(req: NextRequest) {
             };
         }));
 
-        // 🚀 คืนค่า userInstName กลับไปให้หน้าบ้านด้วย
         return NextResponse.json({ personal_data, projectsData, hasMore, userInstName });
 
     } catch (error: any) {
