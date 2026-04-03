@@ -1,18 +1,16 @@
 "use client"
 import { useEffect, useState } from "react";
 
-// --- 1. ปรับปรุง Type ให้ตรงกับข้อมูลจริง ---
 type Question = {
   id: string;
   question: string;
   cat: string;
-  type?: string[]; // ใส่ ? เผื่อกรณีไม่มีข้อมูล type ส่งมา
-  ans: Record<string, number>; // ใช้ Record สำหรับ Object ที่ key เป็น string และ value เป็น number
+  ans: Record<string, number>;
 };
 
 type UserAnswer = {
   questionId: string;
-  answerLabel: string;
+  cat: string;
   points: number;
 };
 
@@ -21,6 +19,10 @@ export default function Page() {
   const [categories, setCategories] = useState<string[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
+  const [isFinished, setIsFinished] = useState(false);
+
+  // สมมติ ID ผู้ใช้คือ 20 (ในระบบจริงอาจดึงจาก Context หรือ Session)
+  const USER_ID = 20;
 
   useEffect(() => {
     async function load() {
@@ -31,19 +33,16 @@ export default function Page() {
         setQuestions(sortedJson);
         setCategories([...new Set(sortedJson.map(item => item.cat))]);
       } catch (err) {
-        console.error("Failed to load data", err);
+        console.error("Failed to load", err);
       }
     }
     load();
   }, []);
 
-  const currentQuestion = questions[currentIdx];
-
-  // --- 2. แก้ไขฟังก์ชันให้รับ Parameter (แก้ Error บรรทัด 103) ---
-  const handleNext = (id: string, ansLabel: string, point: number) => {
+  const handleNext = (id: string, point: number, category: string) => {
     const newAnswer: UserAnswer = {
       questionId: id,
-      answerLabel: ansLabel,
+      cat: category,
       points: point
     };
 
@@ -53,63 +52,78 @@ export default function Page() {
     if (currentIdx < questions.length - 1) {
       setCurrentIdx(currentIdx + 1);
     } else {
+      setIsFinished(true);
       submitAnswers(updatedAnswers);
     }
   };
 
   const submitAnswers = async (finalAnswers: UserAnswer[]) => {
     try {
-      const res = await fetch("api/prsnasmt", {
+      // สร้างก้อนข้อมูลที่จะส่ง (Payload)
+      const payload = {
+        userId: 20, // หรือใส่ ID ที่คุณต้องการ
+        results: finalAnswers,
+        submittedAt: new Date().toISOString()
+      };
+
+      // บรรทัดนี้จะพ่น JSON ออกมาให้เราดูใน Console ของ Browser
+      console.log("-----------------------------------------");
+      console.log("JSON ที่ส่งไปคือ:", JSON.stringify(payload, null, 2));
+      console.log("-----------------------------------------");
+
+      const res = await fetch("/api/prsnasmt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          results: finalAnswers,
-          totalScore: finalAnswers.reduce((sum, item) => sum + item.points, 0),
-        }),
+        body: JSON.stringify(payload),
       });
 
-      if (res.ok) alert("จบแบบทดสอบและส่งข้อมูลแล้ว!");
+      if (res.ok) {
+        alert("บันทึกสำเร็จ!");
+      } else {
+        console.error("Server Error (500)");
+      }
     } catch (err) {
-      console.error("Submit error", err);
+      console.error("Network Error:", err);
     }
   };
 
-  if (questions.length === 0) return <div className="bg-background min-h-screen flex items-center justify-center">Loading...</div>;
+  if (questions.length === 0) return <div className="min-h-screen flex items-center justify-center bg-background">กำลังโหลด...</div>;
+  if (isFinished) return <div className="min-h-screen flex items-center justify-center bg-background text-brand-5 font-bold text-xl">ส่งแบบทดสอบเรียบร้อย!</div>;
 
+  const currentQuestion = questions[currentIdx];
   const progressPercentage = ((currentIdx + 1) / questions.length) * 100;
 
   return (
     <div className="bg-background min-h-screen flex flex-col relative font-sans text-foreground">
       <div className="flex-1 w-full max-w-md mx-auto flex flex-col px-6 pt-12 pb-20">
         
-        {/* Header & Progress */}
+        {/* Progress & Category Header */}
         <div className="w-full">
-          <div className="flex justify-center gap-10 text-sm font-medium mb-6">
+          <div className="flex justify-center gap-4 text-[10px] font-medium mb-6 overflow-x-auto hide-scroll">
             {categories.map((catName) => (
-              <div key={catName} className={`px-4 py-1.5 rounded-full transition-all ${currentQuestion?.cat === catName ? "bg-brand-2 text-background" : "text-brand-4 opacity-50"}`}>
+              <div key={catName} className={`px-3 py-1 rounded-full whitespace-nowrap ${currentQuestion?.cat === catName ? "bg-brand-2 text-white" : "text-brand-4 opacity-40"}`}>
                 {catName}
               </div>
             ))}
           </div>
-          <p className="text-xs text-brand-5 mb-2 px-1">{currentQuestion?.cat}</p>
-          <div className="w-full h-[6px] bg-brand-1 rounded-full overflow-hidden">
-            <div className="h-full bg-brand-4 transition-all duration-500" style={{ width: `${progressPercentage}%` }}></div>
+          <p className="text-[10px] text-brand-4 mb-2 uppercase tracking-widest">{currentQuestion?.cat}</p>
+          <div className="w-full h-1.5 bg-brand-1 rounded-full overflow-hidden">
+            <div className="h-full bg-brand-3 transition-all duration-500" style={{ width: `${progressPercentage}%` }}></div>
           </div>
         </div>
 
         {/* Question Card */}
-        <div className="bg-white rounded-[16px] w-full min-h-[140px] mt-8 flex items-center justify-center p-6 shadow-sm border border-brand-1">
-          <h2 className="text-[18px] font-medium text-center">{currentQuestion?.question}</h2>
+        <div className="bg-white rounded-2xl w-full min-h-[160px] mt-10 flex items-center justify-center p-8 shadow-sm border border-brand-1">
+          <h2 className="text-lg font-medium text-center leading-relaxed text-brand-5">{currentQuestion?.question}</h2>
         </div>
 
-        {/* Answers Section (จุดที่เคยแดง) */}
-        <div className="w-full mt-8 flex flex-col gap-3.5">
-          {currentQuestion && Object.entries(currentQuestion.ans).map(([label, value]) => (
+        {/* Answer Buttons */}
+        <div className="w-full mt-10 flex flex-col gap-4">
+          {Object.entries(currentQuestion.ans).map(([label, value]) => (
             <button
               key={label}
-              // ส่งค่าเข้าไปใน handleNext ตามที่กำหนดไว้ข้างบน
-              onClick={() => handleNext(currentQuestion.id, label, value)}
-              className="w-full bg-white text-brand-5 text-[15px] font-medium py-3.5 px-6 rounded-[14px] border-[1.5px] border-brand-5 shadow-[1px_3px_5px_rgba(0,0,0,0.1) ] hover:bg-brand-1/10 active:scale-[0.98] transition-all"
+              onClick={() => handleNext(currentQuestion.id, value, currentQuestion.cat)}
+              className="w-full bg-white text-brand-5 text-base font-semibold py-4 px-6 rounded-xl border-[1.5px] border-brand-5 shadow-[2px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all"
             >
               {label}
             </button>
@@ -117,7 +131,7 @@ export default function Page() {
         </div>
       </div>
 
-      <div className="absolute bottom-0 w-full bg-brand-1 py-2 text-center text-[10px] text-brand-5 opacity-70">
+      <div className="absolute bottom-0 w-full bg-brand-1 py-2 text-center text-[10px] text-brand-4 opacity-60">
         Contact Us TeamDER.comEnd@gmail.com
       </div>
     </div>
