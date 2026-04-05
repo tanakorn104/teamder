@@ -14,41 +14,29 @@ export async function GET(req: NextRequest) {
     const connection = await db();
 
     try {
-        // 🚀 1. ดึงโปรเจกต์ที่ตัวเองเป็นเจ้าของ (OWNER) พร้อมนับแจ้งเตือน
+        // 🚀 ดึงโปรเจกต์ที่ตัวเองเป็นเจ้าของ (OWNER) และยังไม่ถูกลบ
         const [ownedRows]: any = await connection.execute(
             `SELECT p.id, p.visibility_type AS \`group\`, p.title AS name, p.description, 
                 (SELECT COALESCE(JSON_ARRAYAGG(t.tag_name), JSON_ARRAY()) 
                  FROM project_tags pt JOIN tags t ON pt.tag_id_ref = t.id WHERE pt.project_id_ref = p.id) AS tag,
                 p.target_inst_id, p.subject_code, p.section, p.env_type, p.status, p.is_recruiting, p.max_members,
-                
-                (SELECT COUNT(*) FROM project_members pm1 WHERE pm1.project_id_ref = p.id AND pm1.member_status = 'ACTIVE' AND pm1.id = (SELECT MAX(id) FROM project_members pm2 WHERE pm2.project_id_ref = p.id AND pm2.user_id_ref = pm1.user_id_ref)) AS current_members,
-                
-                -- 🔴 นับคำขอเข้าทีม (Join Requests)
-                (SELECT COUNT(*) FROM join_requests jr1 WHERE jr1.project_id_ref = p.id AND jr1.status = 'PENDING' AND jr1.id = (SELECT MAX(id) FROM join_requests jr2 WHERE jr2.project_id_ref = p.id AND jr2.user_id_ref = jr1.user_id_ref)) AS pending_join_count,
-                
-                -- 🟠 นับคำขอออกทีม (Leave Requests)
-                (SELECT COUNT(*) FROM project_members pm3 WHERE pm3.project_id_ref = p.id AND pm3.member_status = 'LEAVE_PENDING' AND pm3.id = (SELECT MAX(id) FROM project_members pm4 WHERE pm4.project_id_ref = p.id AND pm4.user_id_ref = pm3.user_id_ref)) AS pending_leave_count
-
+                (SELECT COUNT(*) FROM project_members WHERE project_id_ref = p.id AND member_status = 'ACTIVE') AS current_members
              FROM projects p 
              WHERE p.owner_id_ref = ? AND p.deleted_at IS NULL
              ORDER BY p.id DESC`,
             [userId]
         );
 
-        // 🚀 2. ดึงโปรเจกต์ที่ตัวเองเป็นสมาชิก (JOINED)
+        // 🚀 ดึงโปรเจกต์ที่ตัวเองเป็นสมาชิก ACTIVE (แต่ไม่ใช่เจ้าของ) และยังไม่ถูกลบ
         const [joinedRows]: any = await connection.execute(
             `SELECT p.id, p.visibility_type AS \`group\`, p.title AS name, p.description, 
                 (SELECT COALESCE(JSON_ARRAYAGG(t.tag_name), JSON_ARRAY()) 
                  FROM project_tags pt JOIN tags t ON pt.tag_id_ref = t.id WHERE pt.project_id_ref = p.id) AS tag,
                 p.target_inst_id, p.subject_code, p.section, p.env_type, p.status, p.is_recruiting, p.max_members,
-                
-                (SELECT COUNT(*) FROM project_members pm1 WHERE pm1.project_id_ref = p.id AND pm1.member_status = 'ACTIVE' AND pm1.id = (SELECT MAX(id) FROM project_members pm2 WHERE pm2.project_id_ref = p.id AND pm2.user_id_ref = pm1.user_id_ref)) AS current_members
-
+                (SELECT COUNT(*) FROM project_members WHERE project_id_ref = p.id AND member_status = 'ACTIVE') AS current_members
              FROM projects p
              JOIN project_members pm ON p.id = pm.project_id_ref
-             WHERE pm.user_id_ref = ? AND pm.member_status = 'ACTIVE' 
-               AND pm.id = (SELECT MAX(id) FROM project_members pm3 WHERE pm3.project_id_ref = p.id AND pm3.user_id_ref = pm.user_id_ref)
-               AND p.owner_id_ref != ? AND p.deleted_at IS NULL
+             WHERE pm.user_id_ref = ? AND pm.member_status = 'ACTIVE' AND p.owner_id_ref != ? AND p.deleted_at IS NULL
              ORDER BY p.id DESC`,
             [userId, userId]
         );

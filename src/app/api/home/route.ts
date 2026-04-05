@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
             queryParams.push(envType);
         }
 
-        // กรองตาม Text Search
+        // 🚀 กรองตาม Text Search (ค้นหาจากชื่อโปรเจกต์, รายละเอียด หรือ Tag ในตารางใหม่)
         if (q) {
             whereClause += ` AND (
                 p.title LIKE ? 
@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
         const totalProjects = countRows[0].total;
         const hasMore = (offset + limit) < totalProjects;
 
-        // 2. ดึงข้อมูลจริงแบบจำกัดจำนวน
+        // 2. ดึงข้อมูลจริงแบบจำกัดจำนวน (เพิ่มการดึงแท็กด้วย Subquery และดึง max_members ออกมาด้วย)
         const sql = `SELECT 
             p.id, p.visibility_type AS \`group\`, p.title AS name, p.description, 
             (
