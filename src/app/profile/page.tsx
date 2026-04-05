@@ -274,6 +274,12 @@ export default function Profile() {
                         Logout
                     </button>
                 )}
+
+                {/* first for version 0 = prototype , second for update design and feature and last for update bug */}
+                <div className="text-center text-gray-400 text-xs font-mono opacity-60 mt-2">
+                    Version 0.0.1
+                </div>
+
             </div>
         </div>
     );
