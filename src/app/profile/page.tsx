@@ -275,9 +275,9 @@ export default function Profile() {
                     </button>
                 )}
 
-                {/* first for version 0 = prototype , second for update design and feature and last for update bug */}
+                {/* 🚀 เปลี่ยนตรงนี้ให้ดึงจาก .env */}
                 <div className="text-center text-gray-400 text-xs font-mono opacity-60 mt-2">
-                    Version 0.0.1
+                    Version {process.env.NEXT_PUBLIC_VERSION || "0.0.1"}
                 </div>
 
             </div>
