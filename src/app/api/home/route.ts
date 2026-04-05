@@ -36,23 +36,74 @@ export async function GET(req: NextRequest) {
         userInstName = profileRows.length > 0 ? profileRows[0].inst_name : null;
 
         if (offset === 0) {
+            // 1. ดึงข้อมูลทำข้อสอบเอง (Self-Assessment)
             const [userRows]: any = await connection.execute(
                 `SELECT bfi_o, bfi_c, bfi_e, bfi_a, bfi_n, sjt_lead, sjt_plan, sjt_support 
                  FROM user_ai_features WHERE user_id_ref = ?`, [userId]
             );
+
+            // 2. ดึงข้อมูลที่เพื่อนประเมิน (Peer Evaluation) และ "นับจำนวนคนประเมิน" (eval_count)
+            const [peerRows]: any = await connection.execute(
+                `SELECT 
+                    COUNT(id) as eval_count,
+                    AVG(bfi_o) as peer_o, AVG(bfi_c) as peer_c, AVG(bfi_e) as peer_e, AVG(bfi_a) as peer_a, AVG(bfi_n) as peer_n, 
+                    AVG(sjt_lead) as peer_lead, AVG(sjt_plan) as peer_plan, AVG(sjt_support) as peer_support
+                 FROM peer_evaluations 
+                 WHERE target_id_ref = ?`, [userId]
+            );
+
             if (userRows.length > 0) {
-                const u = userRows[0];
+                const self = userRows[0];
+                const peer = peerRows.length > 0 ? peerRows[0] : null;
+                
+                // จำนวนคนที่ประเมิน
+                const N = peer?.eval_count || 0; 
+                // กำหนดจุดคุ้มทุน (Threshold): ให้ K=3 หมายถึงถ้ามีเพื่อนประเมิน 3 คน น้ำหนักจะเท่ากับ 50:50
+                const K = 3; 
+
+                // 3. ฟังก์ชันคำนวณผสมแบบถ่วงน้ำหนัก (Bayesian Average)
+                const mixScore = (selfScore: number, peerScore: number) => {
+                    if (N > 0 && peerScore != null && !isNaN(peerScore)) {
+                        const w_peer = N / (N + K);      // น้ำหนักฝั่งเพื่อน
+                        const w_self = K / (N + K);      // น้ำหนักฝั่งตัวเอง
+                        return (selfScore * w_self) + (peerScore * w_peer);
+                    }
+                    return selfScore; // ถ้าไม่มีคนประเมินเลย ใช้คะแนนตัวเองล้วนๆ
+                };
+
                 personal_data = {
-                    'Openness': Math.round(u.bfi_o * 100), 'Conscientious': Math.round(u.bfi_c * 100),
-                    'Extraversion': Math.round(u.bfi_e * 100), 'Agreeable': Math.round(u.bfi_a * 100),
-                    'Neuroticism': Math.round(u.bfi_n * 100), 'Leadership': Math.round(u.sjt_lead * 100),
-                    'Planning': Math.round(u.sjt_plan * 100), 'Support': Math.round(u.sjt_support * 100)
+                    'Openness': Math.round(mixScore(self.bfi_o, peer?.peer_o) * 100), 
+                    'Conscientious': Math.round(mixScore(self.bfi_c, peer?.peer_c) * 100),
+                    'Extraversion': Math.round(mixScore(self.bfi_e, peer?.peer_e) * 100), 
+                    'Agreeable': Math.round(mixScore(self.bfi_a, peer?.peer_a) * 100),
+                    'Neuroticism': Math.round(mixScore(self.bfi_n, peer?.peer_n) * 100), 
+                    'Leadership': Math.round(mixScore(self.sjt_lead, peer?.peer_lead) * 100),
+                    'Planning': Math.round(mixScore(self.sjt_plan, peer?.peer_plan) * 100), 
+                    'Support': Math.round(mixScore(self.sjt_support, peer?.peer_support) * 100)
                 };
             }
         }
 
-        let whereClause = ` FROM projects p WHERE p.is_recruiting = TRUE`;
-        let queryParams: any[] = [];
+        // 🚀 อัปเดต whereClause (แก้บั๊ก pm1 เป็น pm เรียบร้อย)
+        let whereClause = ` 
+            FROM projects p 
+            WHERE p.is_recruiting = TRUE 
+              AND p.status != 'COMPLETED'
+              AND p.deleted_at IS NULL
+              AND p.owner_id_ref != ?
+              AND NOT EXISTS (
+                  SELECT 1 FROM project_members pm
+                  WHERE pm.project_id_ref = p.id 
+                    AND pm.user_id_ref = ? 
+                    AND pm.member_status = 'ACTIVE'
+                    AND pm.id = (
+                        SELECT MAX(id) FROM project_members pm2 
+                        WHERE pm2.project_id_ref = p.id AND pm2.user_id_ref = pm.user_id_ref
+                    )
+              )
+        `;
+        
+        let queryParams: any[] = [userId, userId];
 
         // กรองตาม Tab
         if (group === 'Global') {
@@ -72,7 +123,7 @@ export async function GET(req: NextRequest) {
             queryParams.push(envType);
         }
 
-        // 🚀 กรองตาม Text Search
+        // กรองตาม Text Search
         if (q) {
             whereClause += ` AND (
                 p.title LIKE ? 
@@ -94,7 +145,6 @@ export async function GET(req: NextRequest) {
         const hasMore = (offset + limit) < totalProjects;
 
         // 2. ดึงข้อมูลจริงแบบจำกัดจำนวน
-        // 💡 อัปเดต: นับเฉพาะ current_members ที่แถวล่าสุดเป็น ACTIVE
         const sql = `SELECT 
             p.id, p.visibility_type AS \`group\`, p.title AS name, p.description, 
             (

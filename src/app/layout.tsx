@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--background)]  min-h-screen  flex flex-col relative `}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--background)]  min-h-screen  flex flex-col relative suppressHydrationWarning`}
       >
         <BottomBar/>
         <div className="w-full h-full relative pb-38 pt-12">
