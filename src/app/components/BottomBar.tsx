@@ -11,8 +11,16 @@ import { IoPerson } from "react-icons/io5";
 export default function BottomBar() {
     const pathname = usePathname();
 
-    // 🛑 ตรวจสอบ Path: ถ้าขึ้นต้นด้วย /auth ให้คืนค่า null (ไม่แสดงอะไรเลย)
-    if (pathname?.startsWith('/auth')) {
+        // 🛑 รายชื่อ Path ที่ไม่ต้องการให้ BottomBar แสดง
+    // 1. /auth (หน้า Login/Callback)
+    // 2. /prsnasmt (หน้าทำแบบทดสอบแรกเข้า)
+    // 3. /evaluate (หน้าประเมินเพื่อนร่วมทีม)
+    const hideBottomBar = 
+        pathname?.startsWith('/auth') || 
+        pathname?.startsWith('/prsnasmt') || 
+        pathname?.startsWith('/evaluate');
+
+    if (hideBottomBar) {
         return null;
     }
 
