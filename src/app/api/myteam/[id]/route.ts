@@ -76,8 +76,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 }
 
-// ... (โค้ดส่วนบนเหมือนเดิม)
-
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const projectId = (await params).id;
     const userId = await getCurrentUserId(req);
@@ -88,8 +86,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const connection = await db();
     try {
-        const [checkOwner]: any = await connection.execute(`SELECT id FROM projects WHERE id = ? AND owner_id_ref = ?`, [projectId, userId]);
-        if (checkOwner.length === 0) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        // 🚀 ดึงข้อมูลโปรเจกต์มาเช็คก่อนว่าเป็น Owner จริงไหม และสถานะเป็น COMPLETED หรือยัง
+        const [checkOwner]: any = await connection.execute(
+            `SELECT id, status FROM projects WHERE id = ? AND owner_id_ref = ?`, 
+            [projectId, userId]
+        );
+        
+        if (checkOwner.length === 0) {
+            return NextResponse.json({ error: "Forbidden: You are not the owner of this project." }, { status: 403 });
+        }
+
+        // 🚀 ถ้าโปรเจกต์ COMPLETED แล้ว ให้ดีดกลับทันที ไม่อนุญาตให้ทำ Action ใดๆ
+        if (checkOwner[0].status === 'COMPLETED') {
+            return NextResponse.json({ error: "ไม่สามารถแก้ไขข้อมูลได้ เนื่องจากโปรเจกต์เสร็จสิ้น (COMPLETED) แล้ว" }, { status: 403 });
+        }
 
         // --- ACTION: แก้ไขข้อมูลโปรเจกต์ ---
         if (action === 'update_project') {
@@ -150,13 +160,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             return NextResponse.json({ success: true, message: "อนุมัติการออกจากทีมแล้ว" });
         }
 
-        // 🚀 --- ACTION ใหม่: ปฏิเสธการขอลาออก (ดึงสมาชิกกลับเป็น ACTIVE) ---
+        // --- ACTION: ปฏิเสธการขอลาออก (ดึงสมาชิกกลับเป็น ACTIVE) ---
         else if (action === 'reject_leave') {
             await connection.execute(
                 `INSERT INTO project_members (project_id_ref, user_id_ref, member_status, status_reason) VALUES (?, ?, 'ACTIVE', 'Leader rejected leave request')`, 
                 [projectId, payload.target_user_id]
             );
             return NextResponse.json({ success: true, message: "ปฏิเสธการขอลาออกเรียบร้อย" });
+        }
+
+        // --- ACTION: ลบโปรเจกต์ ---
+        else if (action === 'delete_project') {
+            await connection.execute(`UPDATE projects SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?`, [projectId]);
+            return NextResponse.json({ success: true, message: "ลบโปรเจกต์สำเร็จ" });
         }
 
         return NextResponse.json({ error: "Invalid action" }, { status: 400 });
