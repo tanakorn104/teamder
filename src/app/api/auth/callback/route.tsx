@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import qs from "qs";
+import { db } from "@/lib/db"; // นำเข้าตัวเชื่อมต่อ Database
 
 export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
     const error = searchParams.get("error");
     const code = searchParams.get("code");
 
-    // 1. ตรวจสอบ Error กรณีผู้ใช้ปฏิเสธการเข้าถึง
     if (error === "access_denied") {
         return NextResponse.redirect(`${process.env.CLIENT_ORIGIN}/login`);
     }
@@ -16,8 +16,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "No code provided" }, { status: 400 });
     }
 
+    let connection; // เตรียมตัวแปรสำหรับ DB Connection
+
     try {
-        // 2. แลกเปลี่ยน code เป็น token จาก Google
+        // 1. แลกเปลี่ยน code เป็น token จาก Google
         const tokenResponse = await axios.post(
             "https://oauth2.googleapis.com/token",
             qs.stringify({
@@ -27,36 +29,47 @@ export async function GET(request: NextRequest) {
                 redirect_uri: process.env.GOOGLE_RedirectCallBackURL_AUTH,
                 grant_type: "authorization_code",
             }),
-            {
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                },
-            }
+            { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
         );
 
         const { access_token, refresh_token } = tokenResponse.data;
         const baseUrl = process.env.CLIENT_ORIGIN || request.nextUrl.origin;
 
-        // 3. นำ Token ไปให้ /api/auth/me จัดการ (ใช้ fetch เพื่อเลี่ยงปัญหา Axios localhost)
+        // 2. ดึงข้อมูล User จาก /api/auth/me
         const meResponse = await fetch(`${baseUrl}/api/auth/me`, {
             method: "GET",
-            headers: {
-                "Authorization": `Bearer ${access_token}`
-            }
+            headers: { "Authorization": `Bearer ${access_token}` }
         });
 
         if (!meResponse.ok) {
-            const errText = await meResponse.text();
-            throw new Error(`Failed to fetch /auth/me: ${errText}`);
+            throw new Error(`Failed to fetch /auth/me`);
         }
 
         const meData = await meResponse.json();
-        
-        // 4. เช็ค Role จาก Database ที่ /auth/me ส่งกลับมา
-        const userRole = meData.user?.primary_role;
-        const redirectPath = userRole === 'New Member' ? "/complete-profile" : "/";
+        const userId = meData.user?.id; // ดึง User ID มาใช้เช็ค DB
 
-        // 5. ตั้งค่าการ Redirect และฝัง Cookie
+        // --- ส่วนที่เพิ่มเข้ามา: เช็คว่าเคยทำแบบทดสอบ (user_ai_features) หรือยัง ---
+        let redirectPath = "/"; // ค่าเริ่มต้นคือหน้าแรก
+        
+        if (userId) {
+            connection = await db();
+            // เช็คว่ามีข้อมูลในตาราง user_ai_features หรือไม่
+            const [aiFeatures]: any = await connection.execute(
+                "SELECT id FROM user_ai_features WHERE user_id_ref = ? LIMIT 1",
+                [userId]
+            );
+
+            if (aiFeatures.length === 0) {
+                // ถ้ายังไม่มีข้อมูล (ยังไม่เคยทำแบบทดสอบ) ให้ไปหน้า /prsnasmt
+                redirectPath = "/prsnasmt";
+            } else {
+                // ถ้ามีแล้ว ให้ไปหน้าแรก /
+                redirectPath = "/";
+            }
+        }
+        // ------------------------------------------------------------------
+
+        // 3. ตั้งค่าการ Redirect และฝัง Cookie
         const response = NextResponse.redirect(new URL(redirectPath, baseUrl));
         const isProduction = process.env.NODE_ENV === "production";
 
@@ -64,7 +77,7 @@ export async function GET(request: NextRequest) {
             httpOnly: true,
             secure: isProduction,
             sameSite: "lax",
-            maxAge: 60 * 60, // 1 ชั่วโมง
+            maxAge: 60 * 60, 
             path: "/",
         });
 
@@ -73,7 +86,7 @@ export async function GET(request: NextRequest) {
                 httpOnly: true,
                 secure: isProduction,
                 sameSite: "lax",
-                maxAge: 30 * 24 * 60 * 60, // 30 วัน
+                maxAge: 30 * 24 * 60 * 60,
                 path: "/",
             });
         }
@@ -81,13 +94,9 @@ export async function GET(request: NextRequest) {
         return response;
 
     } catch (err: any) {
-        // Log Error แบบละเอียดลง Terminal ของ VS Code
-        console.error("🚨 OAuth Callback Error:", err.response?.data || err.message);
-        
-        // ส่ง Error กลับไปที่หน้าจอ (พร้อมรายละเอียด จะได้รู้ว่าพังตรงไหน)
-        return NextResponse.json({ 
-            error: "Authentication failed", 
-            details: err.response?.data || err.message 
-        }, { status: 500 });
+        console.error("🚨 OAuth Callback Error:", err.message);
+        return NextResponse.json({ error: "Authentication failed" }, { status: 500 });
+    } finally {
+        if (connection) await connection.end(); // ปิดการเชื่อมต่อ DB
     }
 }

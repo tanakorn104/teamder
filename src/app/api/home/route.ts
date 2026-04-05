@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
             queryParams.push(envType);
         }
 
-        // 🚀 กรองตาม Text Search (ค้นหาจากชื่อโปรเจกต์, รายละเอียด หรือ Tag ในตารางใหม่)
+        // 🚀 กรองตาม Text Search
         if (q) {
             whereClause += ` AND (
                 p.title LIKE ? 
@@ -93,7 +93,8 @@ export async function GET(req: NextRequest) {
         const totalProjects = countRows[0].total;
         const hasMore = (offset + limit) < totalProjects;
 
-        // 2. ดึงข้อมูลจริงแบบจำกัดจำนวน (เพิ่มการดึงแท็กด้วย Subquery และดึง max_members ออกมาด้วย)
+        // 2. ดึงข้อมูลจริงแบบจำกัดจำนวน
+        // 💡 อัปเดต: นับเฉพาะ current_members ที่แถวล่าสุดเป็น ACTIVE
         const sql = `SELECT 
             p.id, p.visibility_type AS \`group\`, p.title AS name, p.description, 
             (
@@ -104,14 +105,22 @@ export async function GET(req: NextRequest) {
             ) AS tag,
             p.target_inst_id, p.subject_code, p.section, 
             p.env_type, p.status, p.is_recruiting, p.max_members,
-            (SELECT COUNT(*) FROM project_members WHERE project_id_ref = p.id AND member_status = 'ACTIVE') AS current_members
+            (
+                SELECT COUNT(*) 
+                FROM project_members pm1 
+                WHERE pm1.project_id_ref = p.id 
+                  AND pm1.member_status = 'ACTIVE' 
+                  AND pm1.id = (
+                      SELECT MAX(id) FROM project_members pm2 
+                      WHERE pm2.project_id_ref = p.id AND pm2.user_id_ref = pm1.user_id_ref
+                  )
+            ) AS current_members
             ` + whereClause + ` ORDER BY p.id DESC LIMIT ? OFFSET ?`;
 
         const fetchParams = [...queryParams, limit.toString(), offset.toString()];
         const [projectRows]: any = await connection.execute(sql, fetchParams);
 
         // คำนวณ AI
-       // คำนวณ AI
         const projectsData = await Promise.all(projectRows.map(async (p: any) => {
             let compatibleScore = 0;
             try {
