@@ -38,21 +38,27 @@ export default function Profile() {
 
         const fetchData = async () => {
             try {
-                // 1. ดึงข้อมูล Profile ตัวเอง
                 const timestamp = new Date().getTime();
-                const response = await fetch(`/api/auth/me?t=${timestamp}`, { cache: 'no-store' });
                 
-                // 2. ดึงข้อมูลมหาวิทยาลัยทั้งหมด (สร้าง API เพิ่มหรือดึงจากที่มีอยู่)
-                const instRes = await fetch('/api/institutions'); 
+                // 🚀 ดึงข้อมูล 2 อย่างพร้อมกันเพื่อความรวดเร็ว
+                const [meRes, instRes] = await Promise.all([
+                    fetch(`/api/auth/me?t=${timestamp}`, { cache: 'no-store' }),
+                    fetch('/api/institutions')
+                ]);
+                
                 if (instRes.ok) {
                     const instData = await instRes.json();
                     setInstitutions(instData.institutions || []);
                 }
 
-                if (response.ok) {
-                    const data = await response.json();
+                if (meRes.ok) {
+                    const data = await meRes.json();
                     const u = data.user || data;
                     setUser(u);
+                    
+                    // 🚀 แปลง institution_id เป็น Number ให้ชัวร์ เพื่อให้ตรงกับ Dropdown
+                    const savedInstId = u.institution_id ? Number(u.institution_id) : 1;
+
                     setFormData({
                         full_name: u.full_name || u.name || "",
                         primary_role: u.primary_role || "",
@@ -61,7 +67,7 @@ export default function Profile() {
                         district: u.district || "",
                         subdistrict: u.subdistrict || "",
                         zipcode: u.zipcode || "",
-                        institution_id: u.institution_id || 1
+                        institution_id: savedInstId
                     });
                 }
             } catch (err) { 
@@ -118,6 +124,9 @@ export default function Profile() {
 
     const displayName = user?.full_name || user?.name || "Guest User";
     const displayImage = user?.profile_image || user?.picture || null;
+    
+    // 🚀 หาชื่อมหาวิทยาลัยมาแสดงในหน้า Profile ปกติ
+    const displayInstitution = institutions.find(inst => inst.id === (user?.institution_id ? Number(user.institution_id) : formData.institution_id))?.name_th || "ยังไม่ได้เลือกมหาวิทยาลัย";
 
     return (
         <div className="min-h-screen bg-background flex flex-col items-center w-full pb-24 pt-12">
@@ -236,6 +245,9 @@ export default function Profile() {
                                     <div className="mt-4 flex flex-wrap gap-2 justify-center md:justify-start">
                                         <span className="px-4 py-1.5 bg-active/10 text-active rounded-full text-xs font-black uppercase tracking-tighter border border-active/5">
                                             {user?.primary_role || "No Role Set"}
+                                        </span>
+                                        <span className="px-4 py-1.5 bg-gray-50 text-gray-600 rounded-full text-xs font-bold flex items-center gap-1 border border-gray-100">
+                                            <BiBuildings /> {displayInstitution}
                                         </span>
                                         <span className="px-4 py-1.5 bg-gray-50 text-gray-600 rounded-full text-xs font-bold flex items-center gap-1 border border-gray-100">
                                             <BiMapPin /> {user?.province || "No Location"}

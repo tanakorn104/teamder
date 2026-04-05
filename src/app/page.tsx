@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation"; // 🚀 เพิ่ม useRouter
 import {
   Chart as ChartJS, RadialLinearScale, PointElement,
   LineElement, Filler, Tooltip, Legend,
@@ -26,12 +27,13 @@ interface UserProfile {
 }
 
 export default function Home() {
+  const router = useRouter(); // 🚀 เรียกใช้งาน router
+
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [personalData, setPersonalData] = useState<Record<string, number>>({});
   const [projects, setProjects] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 🚀 เพิ่ม State เก็บชื่อมหาวิทยาลัย
   const [userInstName, setUserInstName] = useState<string>("");
 
   const [offset, setOffset] = useState(0);
@@ -105,7 +107,6 @@ export default function Home() {
           if (data.personal_data && Object.keys(data.personal_data).length > 0) {
             setPersonalData(data.personal_data);
           }
-          // 🚀 รับชื่อมหาวิทยาลัยมาเก็บไว้
           if (data.userInstName) {
             setUserInstName(data.userInstName);
           }
@@ -308,7 +309,6 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end px-2 gap-2">
             <div className="flex flex-col gap-1.5">
               <h2 className="text-xl font-bold">Explore Projects</h2>
-              {/* 🚀 แสดงชื่อมหาวิทยาลัยเมื่ออยู่แท็บ University */}
               {group === "University" && userInstName && (
                 <span className="flex items-center w-fit gap-1.5 text-sm font-bold text-cyan-600 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-100 mt-1">
                   <MdSchool className="text-base" /> {userInstName}
@@ -327,7 +327,12 @@ export default function Home() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
                 {projects.map((item) => (
-                  <div key={item.id} className="bg-white rounded-[24px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-50 flex flex-col h-full hover:shadow-lg transition-shadow relative overflow-hidden">
+                  // 🚀 เพิ่ม onClick และปรับ className เพื่อให้กดได้และมีลูกเล่น hover
+                  <div 
+                    key={item.id} 
+                    onClick={() => router.push(`/project/${item.id}`)}
+                    className="bg-white rounded-[24px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-50 flex flex-col h-full hover:shadow-xl hover:-translate-y-1 cursor-pointer transition-all duration-300 relative overflow-hidden"
+                  >
                     
                     <div className="flex flex-wrap gap-2 mb-3">
                       {item.env_type && item.group !== 'Subject' && getEnvBadge(item.env_type)}
@@ -340,7 +345,7 @@ export default function Home() {
                     </div>
 
                     <div className="flex justify-between items-start gap-4 mb-2">
-                      <h3 className="font-bold text-base leading-tight flex-1">{item.name}</h3>
+                      <h3 className="font-bold text-base leading-tight flex-1 group-hover:text-cyan-600 transition-colors">{item.name}</h3>
                       <div className="flex items-center gap-1 bg-score text-score-content px-3 py-1 rounded-full text-sm font-bold shrink-0">
                         <BsStars />
                         {item.compatible}%
@@ -372,12 +377,14 @@ export default function Home() {
                         </span>
                       </div>
 
-                      <div className="flex justify-between items-center text-xs font-medium text-gray-400">
+                      <div className="flex justify-between items-center text-xs font-medium text-gray-400 mt-1">
                         <p className="flex items-center gap-1">
                            <span className="font-bold text-gray-600">{item.members.split("/")[0]}</span> 
                            Enrolled / Need {item.members.split("/")[1]}
                         </p>
-                        <MdNavigateNext className="text-xl text-gray-300" />
+                        <div className="flex items-center gap-1 text-cyan-500 font-bold hover:text-cyan-600 transition-colors">
+                          View Details <MdNavigateNext className="text-xl" />
+                        </div>
                       </div>
                     </div>
 

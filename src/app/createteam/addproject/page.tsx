@@ -3,38 +3,133 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IoMdArrowBack } from "react-icons/io";
-import { FaMinus, FaPlus } from "react-icons/fa6"; // เปลี่ยนมาใช้ fa6 ให้เหมือนหน้าอื่นๆ
-
+import { FaMinus, FaPlus } from "react-icons/fa6";
+import { BiSearch, BiX } from "react-icons/bi";
 import { stringToColor } from "@/lib/utils";
 
 export default function AddProject() {
     const router = useRouter();
 
-    // States สำหรับให้ UI ขยับและตอบสนองได้จริง
+    // Form States
     const [scope, setScope] = useState("Global");
-    const [teamSize, setTeamSize] = useState(1);
-    const [tags, setTags] = useState<string[]>([]);
+    const [envType, setEnvType] = useState("education");
+    const [title, setTitle] = useState("");
+    const [description, setDescription] = useState("");
+    const [subjectCode, setSubjectCode] = useState("");
+    const [section, setSection] = useState("");
+    const [teamSize, setTeamSize] = useState(5); // Default เป็น 5
+
+    // Tags States
+    const [allTags, setAllTags] = useState<any[]>([]);
+    const [selectedTags, setSelectedTags] = useState<any[]>([]);
+    const [tagSearch, setTagSearch] = useState("");
+    const [showTagDropdown, setShowTagDropdown] = useState(false);
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
-        // จำลองข้อมูล Tag เบื้องต้น
-        let initialTags = ["Research", "Creative", "Innovation", "Business", "Study"];
-        setTags(initialTags);
+        // 🚀 ดึง Tags จาก DB ด้วย fetch (ไม่ใช้ axios)
+        const fetchTags = async () => {
+            try {
+                const res = await fetch('/api/tags');
+                if (res.ok) {
+                    const data = await res.json();
+                    setAllTags(data.tags || []);
+                }
+            } catch (error) {
+                console.error("Failed to load tags");
+            }
+        };
+        fetchTags();
     }, []);
 
+    // --- Handlers ---
     const handleDecrease = () => setTeamSize(prev => (prev > 1 ? prev - 1 : 1));
     const handleIncrease = () => setTeamSize(prev => prev + 1);
 
+    const handleAddTag = (tag: any) => {
+        if (!selectedTags.find(t => t.id === tag.id)) {
+            if (selectedTags.length >= 5) {
+                alert("เลือกแท็กได้สูงสุด 5 แท็กครับ");
+                return;
+            }
+            setSelectedTags([...selectedTags, tag]);
+        }
+        setTagSearch("");
+        setShowTagDropdown(false);
+    };
+
+    const handleRemoveTag = (tagId: number) => {
+        setSelectedTags(selectedTags.filter(t => t.id !== tagId));
+    };
+
+    // ค้นหา Tag ที่ยังไม่ได้เลือก
+    const filteredTags = allTags
+        .filter(t => t.tag_name.toLowerCase().includes(tagSearch.toLowerCase()))
+        .filter(t => !selectedTags.find(st => st.id === t.id))
+        .slice(0, 10); // โชว์แค่ 10 อันพอให้ไม่ล้นจอ
+
+    const handleSubmit = async () => {
+        if (!title.trim() || !description.trim()) {
+            alert("กรุณากรอกชื่อและรายละเอียดโปรเจกต์ให้ครบถ้วน");
+            return;
+        }
+        if (scope === "Subject" && !subjectCode.trim()) {
+            alert("กรุณากรอกรหัสวิชา");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const payload = {
+                title,
+                description,
+                visibility_type: scope,
+                env_type: scope === "Subject" ? "education" : envType, // ถ้าวิชาเรียน บังคับเป็น education
+                max_members: teamSize,
+                subject_code: scope === "Subject" ? subjectCode : null,
+                section: scope === "Subject" ? section : null,
+                tags: selectedTags.map(t => t.id)
+            };
+
+            // 🚀 ส่งข้อมูลไปที่ API ด้วย fetch (ไม่ใช้ axios)
+            const res = await fetch('/api/createteam', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success) {
+                    // เด้งไปหน้าแรก หรือหน้าโปรเจกต์
+                    router.push('/');
+                    router.refresh();
+                } else {
+                    alert(data.error || "เกิดข้อผิดพลาดในการสร้างโปรเจกต์");
+                }
+            } else {
+                alert("เกิดข้อผิดพลาดจากเซิร์ฟเวอร์");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-background flex flex-col items-center w-full font-sans text-foreground pb-24 pt-6 md:pt-10">
-            
-            {/* คุมความกว้างไม่ให้ฟอร์มยืดเกินไปบนจอคอม */}
             <div className="w-full max-w-2xl px-6 md:px-8 flex flex-col gap-8 md:gap-10">
                 
-                {/* --- Header & Back Button --- */}
+                {/* --- Header --- */}
                 <div className="flex flex-row items-center gap-4">
                     <button 
                         onClick={() => router.back()}
-                        className="flex justify-center items-center w-10 h-10 bg-white border border-gray-200 text-gray-600 rounded-full shadow-sm hover:bg-gray-50 hover:shadow transition-all"
+                        className="flex justify-center items-center w-10 h-10 bg-white border border-gray-200 text-gray-600 rounded-full shadow-sm hover:bg-gray-50 transition-all"
                     >
                         <IoMdArrowBack className="text-xl" />
                     </button>
@@ -46,11 +141,10 @@ export default function AddProject() {
                     {/* --- Section 1: Scope Selection --- */}
                     <div className="flex flex-col gap-4">
                         <div>
-                            <h2 className="text-lg md:text-xl font-bold">เลือกขอบเขตการทำงาน</h2>
+                            <h2 className="text-lg md:text-xl font-bold">1. Visibility Scope</h2>
                             <p className="text-sm text-gray-500 mt-1">ใครบ้างที่สามารถเห็นและขอเข้าร่วมงานของคุณ</p>
                         </div>
                         
-                        {/* Grid สลับการเรียง: มือถือ 1 คอลัมน์, จอใหญ่ 3 คอลัมน์ */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
                             {[
                                 { name: "Global", desc: "Everyone can join" },
@@ -62,103 +156,168 @@ export default function AddProject() {
                                     onClick={() => setScope(item.name)}
                                     className={`flex flex-col justify-center border p-4 rounded-2xl cursor-pointer transition-all duration-300 ${
                                         scope === item.name 
-                                            ? "border-active bg-active/10 shadow-[0_4px_15px_rgba(145,178,195,0.2)]" 
+                                            ? "border-cyan-500 bg-cyan-50 shadow-[0_4px_15px_rgba(6,182,212,0.2)]" 
                                             : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
                                     }`}
                                 >
-                                    <b className={`text-base ${scope === item.name ? "text-active" : "text-gray-800"}`}>
+                                    <b className={`text-base ${scope === item.name ? "text-cyan-700" : "text-gray-800"}`}>
                                         {item.name}
                                     </b>
                                     <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
                                 </div>
                             ))}
                         </div>
+
+                        {/* ฟิลด์เฉพาะเมื่อเลือก Subject */}
+                        {scope === "Subject" && (
+                            <div className="flex gap-4 mt-2 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                                <div className="flex-1 flex flex-col gap-1.5">
+                                    <label className="text-xs font-bold text-blue-700 uppercase">Subject Code *</label>
+                                    <input 
+                                        type="text" value={subjectCode} onChange={(e)=>setSubjectCode(e.target.value)}
+                                        placeholder="e.g. 01204212" className="px-4 py-2.5 rounded-xl border border-blue-200 outline-none focus:ring-2 focus:ring-blue-400 w-full"
+                                    />
+                                </div>
+                                <div className="w-1/3 flex flex-col gap-1.5">
+                                    <label className="text-xs font-bold text-blue-700 uppercase">Section</label>
+                                    <input 
+                                        type="text" value={section} onChange={(e)=>setSection(e.target.value)}
+                                        placeholder="e.g. 712" className="px-4 py-2.5 rounded-xl border border-blue-200 outline-none focus:ring-2 focus:ring-blue-400 w-full"
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* --- Section 2: Project Details --- */}
                     <div className="flex flex-col gap-6">
                         <div>
-                            <h2 className="text-lg md:text-xl font-bold">Project details</h2>
-                            <p className="text-sm text-gray-500 mt-1">Tell people what you’re interested in</p>
+                            <h2 className="text-lg md:text-xl font-bold">2. Project Details</h2>
+                            <p className="text-sm text-gray-500 mt-1">รายละเอียดงาน ประเภท และจำนวนคนที่ต้องการ</p>
                         </div>
                         
                         <div className="flex flex-col gap-5 text-sm md:text-base">
                             
-                            {/* Title Input */}
+                            {/* Title */}
                             <div className="flex flex-col gap-2">
-                                <label className="font-bold text-gray-700">Title</label>
+                                <label className="font-bold text-gray-700">Project Title <span className="text-red-500">*</span></label>
                                 <input 
-                                    type="text" 
-                                    placeholder="e.g. Al Chatbot for mystery"
-                                    className="px-4 py-3 border border-gray-200 w-full rounded-xl bg-white shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-active focus:border-transparent transition-all" 
+                                    type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+                                    placeholder="e.g. AI Chatbot for e-commerce"
+                                    className="px-4 py-3 border border-gray-200 w-full rounded-xl bg-white shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all" 
                                 />
                             </div>
 
-                            {/* Description Textarea */}
+                            {/* Env Type (ซ่อนเมื่อเป็น Subject เพราะ Subject ต้องเป็นการศึกษาอยู่แล้ว) */}
+                            {scope !== "Subject" && (
+                                <div className="flex flex-col gap-2">
+                                    <label className="font-bold text-gray-700">Project Type</label>
+                                    <select 
+                                        value={envType} onChange={(e) => setEnvType(e.target.value)}
+                                        className="px-4 py-3 border border-gray-200 w-full rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 appearance-none"
+                                    >
+                                        <option value="education">🎓 Education (เพื่อการศึกษา/ฝึกฝน)</option>
+                                        <option value="professional">💼 Professional (ระดับทำงาน/ทำธุรกิจ)</option>
+                                        <option value="competition">🏆 Competition (แข่งขันทักษะ/Hackathon)</option>
+                                    </select>
+                                </div>
+                            )}
+
+                            {/* Description */}
                             <div className="flex flex-col gap-2">
-                                <label className="font-bold text-gray-700">Description</label>
+                                <label className="font-bold text-gray-700">Description <span className="text-red-500">*</span></label>
                                 <textarea 
-                                    placeholder="Describe your project here..."
+                                    value={description} onChange={(e) => setDescription(e.target.value)}
+                                    placeholder="Describe your project, goals, and what kind of roles you are looking for..."
                                     rows={4}
-                                    className="px-4 py-3 border border-gray-200 w-full rounded-xl bg-white shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-active focus:border-transparent transition-all resize-none" 
+                                    className="px-4 py-3 border border-gray-200 w-full rounded-xl bg-white shadow-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all resize-none" 
                                 ></textarea>
                             </div>
 
-                            {/* Team Size Counter */}
+                            {/* Team Size */}
                             <div className="flex flex-col gap-2">
-                                <label className="font-bold text-gray-700">Team Size</label>
+                                <label className="font-bold text-gray-700">Total Members Needed</label>
                                 <div className="flex flex-row items-center justify-between px-6 py-4 border border-gray-200 w-full rounded-xl bg-white shadow-sm">
-                                    <button 
-                                        onClick={handleDecrease}
-                                        className="flex justify-center items-center w-10 h-10 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 hover:text-gray-800 transition-colors"
-                                    >
+                                    <button onClick={handleDecrease} className="flex justify-center items-center w-10 h-10 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition-colors">
                                         <FaMinus />
                                     </button>
                                     <div className="flex flex-col justify-center items-center">
-                                        <p className="text-3xl font-light text-foreground">{teamSize}</p>
-                                        <p className="text-xs text-gray-400 font-medium">members needed</p>
+                                        <p className="text-3xl font-light text-slate-800">{teamSize}</p>
+                                        <p className="text-xs text-gray-400 font-medium">people</p>
                                     </div>
-                                    <button 
-                                        onClick={handleIncrease}
-                                        className="flex justify-center items-center w-10 h-10 bg-active text-white rounded-full shadow-sm hover:opacity-90 hover:scale-105 transition-all"
-                                    >
+                                    <button onClick={handleIncrease} className="flex justify-center items-center w-10 h-10 bg-cyan-500 text-white rounded-full shadow-sm hover:bg-cyan-600 transition-all">
                                         <FaPlus />
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Tags */}
-                            <div className="flex flex-col gap-3 mt-2">
-                                <label className="font-bold text-gray-700">Tags</label>
-                                <div className="flex flex-row flex-wrap gap-2 items-center">
-                                    {tags.map(item => {
-                                        const tagTheme = stringToColor(item);
+                            {/* Tags Selection (Autocomplete) */}
+                            <div className="flex flex-col gap-3 mt-2 relative">
+                                <label className="font-bold text-gray-700">Tags (Max 5)</label>
+                                
+                                {/* Selected Tags Display */}
+                                <div className="flex flex-row flex-wrap gap-2 items-center min-h-[36px]">
+                                    {selectedTags.map(item => {
+                                        const tagTheme = stringToColor(item.tag_name);
                                         return (
                                             <span 
-                                                key={item} 
-                                                style={{ 
-                                                    backgroundColor: tagTheme.bg, 
-                                                    color: tagTheme.text,
-                                                    borderColor: tagTheme.border 
-                                                }}
-                                                className="px-4 py-1.5 text-xs md:text-sm font-bold border rounded-full shadow-sm"
+                                                key={item.id} 
+                                                onClick={() => handleRemoveTag(item.id)}
+                                                style={{ backgroundColor: tagTheme.bg, color: tagTheme.text, borderColor: tagTheme.border }}
+                                                className="px-3 py-1.5 text-xs font-bold border rounded-full shadow-sm cursor-pointer hover:opacity-70 transition-opacity flex items-center gap-1"
                                             >
-                                                #{item}
+                                                #{item.tag_name} <BiX className="text-sm ml-0.5" />
                                             </span>
                                         );
                                     })}
-                                    <button className="flex justify-center items-center px-3 py-1.5 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-full border border-gray-200 border-dashed transition-colors gap-1 text-xs md:text-sm font-bold">
-                                        <FaPlus className="text-[10px]" /> Add Tag
-                                    </button>
+                                    {selectedTags.length === 0 && <p className="text-xs text-gray-400 italic">ยังไม่ได้เลือกแท็ก...</p>}
                                 </div>
+
+                                {/* Tag Search Input */}
+                                {selectedTags.length < 5 && (
+                                    <div className="relative">
+                                        <BiSearch className="absolute left-3.5 top-3.5 text-gray-400 text-lg" />
+                                        <input 
+                                            type="text" 
+                                            value={tagSearch} 
+                                            onChange={(e) => { setTagSearch(e.target.value); setShowTagDropdown(true); }}
+                                            onFocus={() => setShowTagDropdown(true)}
+                                            placeholder="Search tags (e.g. AI, React, Marketing...)"
+                                            className="px-4 py-3 pl-10 border border-gray-200 w-full rounded-xl bg-white shadow-sm outline-none focus:ring-2 focus:ring-cyan-500 text-sm"
+                                        />
+                                        
+                                        {/* Dropdown Suggestions */}
+                                        {showTagDropdown && tagSearch && (
+                                            <div className="absolute top-full left-0 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
+                                                {filteredTags.length > 0 ? (
+                                                    filteredTags.map(tag => (
+                                                        <div 
+                                                            key={tag.id} 
+                                                            onClick={() => handleAddTag(tag)}
+                                                            className="px-4 py-2.5 text-sm hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0"
+                                                        >
+                                                            #{tag.tag_name}
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div className="px-4 py-3 text-sm text-gray-400 text-center italic">No matching tags found</div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                            
+
                         </div>
 
                         {/* --- Submit Button --- */}
                         <div className="mt-8">
-                            <button className="flex justify-center items-center w-full py-4 rounded-xl bg-active text-white font-bold text-base md:text-lg shadow-[0_8px_20px_rgba(145,178,195,0.4)] hover:-translate-y-1 hover:shadow-[0_12px_25px_rgba(145,178,195,0.5)] transition-all duration-300">
-                                Create Team
+                            <button 
+                                onClick={handleSubmit}
+                                disabled={isSubmitting}
+                                className="flex justify-center items-center w-full py-4 rounded-xl bg-cyan-600 text-white font-bold text-base md:text-lg shadow-lg hover:bg-cyan-700 hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 disabled:hover:translate-y-0"
+                            >
+                                {isSubmitting ? "Creating Project..." : "Create Team"}
                             </button>
                         </div>
 
