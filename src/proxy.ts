@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest){
   const { pathname } = request.nextUrl;
 
   // 1. หน้าที่ "อนุญาต" ให้เข้าได้โดยไม่ต้อง Login (Public Routes)
