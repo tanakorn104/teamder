@@ -14,29 +14,65 @@ export async function GET(req: NextRequest) {
     const connection = await db();
 
     try {
-        // 🚀 ดึงโปรเจกต์ที่ตัวเองเป็นเจ้าของ (OWNER) และยังไม่ถูกลบ
+        // 🚀 1. ดึงโปรเจกต์ที่ตัวเองเป็นเจ้าของ (OWNER) พร้อมนับจำนวนต่างๆ จากแถวล่าสุดเท่านั้น
         const [ownedRows]: any = await connection.execute(
             `SELECT p.id, p.visibility_type AS \`group\`, p.title AS name, p.description, 
                 (SELECT COALESCE(JSON_ARRAYAGG(t.tag_name), JSON_ARRAY()) 
                  FROM project_tags pt JOIN tags t ON pt.tag_id_ref = t.id WHERE pt.project_id_ref = p.id) AS tag,
                 p.target_inst_id, p.subject_code, p.section, p.env_type, p.status, p.is_recruiting, p.max_members,
-                (SELECT COUNT(*) FROM project_members WHERE project_id_ref = p.id AND member_status = 'ACTIVE') AS current_members
+                
+                -- นับเฉพาะสมาชิกที่สถานะ "ล่าสุด" เป็น ACTIVE
+                (SELECT COUNT(*) FROM project_members pm1 
+                 WHERE pm1.project_id_ref = p.id AND pm1.member_status = 'ACTIVE' 
+                 AND pm1.id = (SELECT MAX(id) FROM project_members pm2 WHERE pm2.project_id_ref = p.id AND pm2.user_id_ref = pm1.user_id_ref)
+                ) AS current_members,
+
+                -- นับคำขอเข้าทีมที่สถานะ "ล่าสุด" เป็น PENDING
+                (SELECT COUNT(*) FROM join_requests jr1 
+                 WHERE jr1.project_id_ref = p.id AND jr1.status = 'PENDING'
+                 AND jr1.id = (SELECT MAX(id) FROM join_requests jr2 WHERE jr2.project_id_ref = p.id AND jr2.user_id_ref = jr1.user_id_ref)
+                ) AS pending_join_count,
+
+                -- นับคนขอออกจากทีมที่สถานะ "ล่าสุด" เป็น LEAVE_PENDING
+                (SELECT COUNT(*) FROM project_members pm_leave1 
+                 WHERE pm_leave1.project_id_ref = p.id AND pm_leave1.member_status = 'LEAVE_PENDING'
+                 AND pm_leave1.id = (SELECT MAX(id) FROM project_members pm_leave2 WHERE pm_leave2.project_id_ref = p.id AND pm_leave2.user_id_ref = pm_leave1.user_id_ref)
+                ) AS pending_leave_count
+
              FROM projects p 
              WHERE p.owner_id_ref = ? AND p.deleted_at IS NULL
              ORDER BY p.id DESC`,
             [userId]
         );
 
-        // 🚀 ดึงโปรเจกต์ที่ตัวเองเป็นสมาชิก ACTIVE (แต่ไม่ใช่เจ้าของ) และยังไม่ถูกลบ
+        // 🚀 2. ดึงโปรเจกต์ที่ตัวเองเป็นสมาชิก โดยต้องเช็คว่าสถานะ "ล่าสุด" เป็น ACTIVE จริงๆ
         const [joinedRows]: any = await connection.execute(
             `SELECT p.id, p.visibility_type AS \`group\`, p.title AS name, p.description, 
                 (SELECT COALESCE(JSON_ARRAYAGG(t.tag_name), JSON_ARRAY()) 
                  FROM project_tags pt JOIN tags t ON pt.tag_id_ref = t.id WHERE pt.project_id_ref = p.id) AS tag,
                 p.target_inst_id, p.subject_code, p.section, p.env_type, p.status, p.is_recruiting, p.max_members,
-                (SELECT COUNT(*) FROM project_members WHERE project_id_ref = p.id AND member_status = 'ACTIVE') AS current_members
+                
+                -- นับเฉพาะสมาชิกที่สถานะ "ล่าสุด" เป็น ACTIVE
+                (SELECT COUNT(*) FROM project_members pm1 
+                 WHERE pm1.project_id_ref = p.id AND pm1.member_status = 'ACTIVE' 
+                 AND pm1.id = (SELECT MAX(id) FROM project_members pm2 WHERE pm2.project_id_ref = p.id AND pm2.user_id_ref = pm1.user_id_ref)
+                ) AS current_members,
+                
+                0 AS pending_join_count, -- สมาชิกธรรมดาไม่ต้องโชว์แจ้งเตือน
+                0 AS pending_leave_count
+
              FROM projects p
-             JOIN project_members pm ON p.id = pm.project_id_ref
-             WHERE pm.user_id_ref = ? AND pm.member_status = 'ACTIVE' AND p.owner_id_ref != ? AND p.deleted_at IS NULL
+             WHERE p.owner_id_ref != ? AND p.deleted_at IS NULL
+             AND EXISTS (
+                 SELECT 1 FROM project_members pm_check
+                 WHERE pm_check.project_id_ref = p.id 
+                 AND pm_check.user_id_ref = ? 
+                 AND pm_check.member_status = 'ACTIVE'
+                 AND pm_check.id = (
+                     SELECT MAX(id) FROM project_members pm_check2 
+                     WHERE pm_check2.project_id_ref = p.id AND pm_check2.user_id_ref = pm_check.user_id_ref
+                 )
+             )
              ORDER BY p.id DESC`,
             [userId, userId]
         );
@@ -68,7 +104,6 @@ export async function GET(req: NextRequest) {
                     members: `${p.current_members}/${p.max_members || 5}`,
                     target_inst_id: p.target_inst_id, subject_code: p.subject_code, section: p.section,
                     env_type: p.env_type, status: p.status, is_recruiting: p.is_recruiting,
-                    // 🚀 ส่งตัวเลขแจ้งเตือนไปให้หน้าบ้าน (บังคับเป็น Number กันเหนียว)
                     pending_join_count: Number(p.pending_join_count) || 0,
                     pending_leave_count: Number(p.pending_leave_count) || 0
                 };
