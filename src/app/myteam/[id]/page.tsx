@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { IoMdArrowBack } from "react-icons/io";
+import { MdNavigateNext, MdSchool, MdWork, MdEmojiEvents, MdAccessTime, MdPlayCircleOutline, MdCheckCircleOutline, MdRateReview } from "react-icons/md";
 import { IoPersonOutline } from "react-icons/io5";
 import { BiCheck, BiX, BiTrash } from "react-icons/bi";
 
@@ -53,8 +54,8 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                 }
 
                 setProject(data.project);
-                setMembers(data.members);
-                setRequests(data.requests);
+                setMembers(data.members); 
+                setRequests(data.requests); 
                 
                 let parsedTags = [];
                 try {
@@ -174,7 +175,6 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
         } catch (e) { alert("เกิดข้อผิดพลาด"); }
     };
 
-    // 🚀 ฟังก์ชันปฏิเสธคำขอลาออก
     const handleRejectLeave = async (userId: number) => {
         if (!confirm("ปฏิเสธคำขอลาออก และให้สมาชิกท่านนี้อยู่ในทีมต่อไป?")) return;
         try {
@@ -192,6 +192,7 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
     if (!project) return null;
 
     const unselectedTags = availableTags.filter(at => !(formData.tags || []).some((ft: any) => ft.id === at.id));
+    const isCompleted = formData.status === "COMPLETED"; // 🚀 ตัวแปรเช็คสถานะโปรเจกต์
 
     return (
         <div className="min-h-screen bg-background flex flex-col items-center w-full font-sans text-foreground pb-24 pt-6 md:pt-10">
@@ -208,6 +209,13 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                     </div>
                 </div>
 
+                {isCompleted && (
+                    <div className="w-full bg-green-50 border border-green-200 p-4 rounded-2xl flex items-center justify-center gap-2 text-green-700 font-bold animate-in fade-in">
+                        <MdCheckCircleOutline className="text-xl" /> 
+                        โครงการนี้เสร็จสิ้นแล้ว ไม่สามารถแก้ไขข้อมูลหรือรับสมาชิกเพิ่มได้ แต่สามารถเข้าประเมินผลการทำงานของเพื่อนร่วมทีมได้
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     
                     {/* Left Column: Project Settings */}
@@ -217,8 +225,9 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                         <div className="flex flex-col gap-2">
                             <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Project Title</label>
                             <input 
+                                disabled={isCompleted}
                                 type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})}
-                                className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
+                                className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-cyan-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                         </div>
 
@@ -226,8 +235,9 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                             <div className="flex flex-col gap-2">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Visibility Scope</label>
                                 <select 
+                                    disabled={isCompleted}
                                     value={formData.visibility_type} onChange={(e) => setFormData({...formData, visibility_type: e.target.value})}
-                                    className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-cyan-500 outline-none"
+                                    className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-cyan-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <option value="Global">Global (Everyone)</option>
                                     <option value="University">University Only</option>
@@ -238,8 +248,9 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                             <div className="flex flex-col gap-2">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Project Category</label>
                                 <select 
+                                    disabled={isCompleted}
                                     value={formData.env_type} onChange={(e) => setFormData({...formData, env_type: e.target.value})}
-                                    className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-cyan-500 outline-none"
+                                    className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-cyan-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <option value="education">🎓 Education</option>
                                     <option value="professional">💼 Professional</option>
@@ -253,16 +264,18 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                                 <div className="flex flex-col gap-2">
                                     <label className="text-xs font-bold text-blue-600 uppercase">Subject Code</label>
                                     <input 
+                                        disabled={isCompleted}
                                         type="text" value={formData.subject_code} onChange={(e) => setFormData({...formData, subject_code: e.target.value})}
-                                        className="w-full p-3 bg-white border border-blue-200 rounded-xl outline-none"
+                                        className="w-full p-3 bg-white border border-blue-200 rounded-xl outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                         placeholder="e.g. 01204XXX"
                                     />
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <label className="text-xs font-bold text-blue-600 uppercase">Section</label>
                                     <input 
+                                        disabled={isCompleted}
                                         type="text" value={formData.section} onChange={(e) => setFormData({...formData, section: e.target.value})}
-                                        className="w-full p-3 bg-white border border-blue-200 rounded-xl outline-none"
+                                        className="w-full p-3 bg-white border border-blue-200 rounded-xl outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                         placeholder="e.g. 700"
                                     />
                                 </div>
@@ -272,8 +285,9 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                         <div className="flex flex-col gap-2">
                             <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Description</label>
                             <textarea 
+                                disabled={isCompleted}
                                 rows={4} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}
-                                className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-cyan-500 outline-none resize-none transition-all"
+                                className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-cyan-500 outline-none resize-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                         </div>
 
@@ -283,34 +297,38 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                                 {(formData.tags || []).map((tag: any) => (
                                     <span key={tag.id} className="bg-white text-cyan-600 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 border border-cyan-100 shadow-sm">
                                         #{tag.tag_name}
-                                        <BiX className="cursor-pointer hover:text-red-500 text-lg" onClick={() => handleRemoveTag(tag.id)} />
+                                        {!isCompleted && <BiX className="cursor-pointer hover:text-red-500 text-lg" onClick={() => handleRemoveTag(tag.id)} />}
                                     </span>
                                 ))}
                             </div>
-                            <select 
-                                onChange={handleSelectTag}
-                                className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm cursor-pointer outline-none focus:border-cyan-400"
-                            >
-                                <option value="">+ เพิ่มแท็กที่เกี่ยวข้อง</option>
-                                {unselectedTags.map(tag => (
-                                    <option key={tag.id} value={tag.id}>{tag.tag_name}</option>
-                                ))}
-                            </select>
+                            {!isCompleted && (
+                                <select 
+                                    onChange={handleSelectTag}
+                                    className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm cursor-pointer outline-none focus:border-cyan-400"
+                                >
+                                    <option value="">+ เพิ่มแท็กที่เกี่ยวข้อง</option>
+                                    {unselectedTags.map(tag => (
+                                        <option key={tag.id} value={tag.id}>{tag.tag_name}</option>
+                                    ))}
+                                </select>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="flex flex-col gap-2">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Max Members</label>
                                 <input 
+                                    disabled={isCompleted}
                                     type="number" min="1" value={formData.max_members} onChange={(e) => setFormData({...formData, max_members: parseInt(e.target.value)})}
-                                    className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-2xl outline-none"
+                                    className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-2xl outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                             </div>
                             <div className="flex flex-col gap-2">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Project Status</label>
                                 <select 
+                                    disabled={isCompleted}
                                     value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}
-                                    className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-2xl outline-none"
+                                    className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-2xl outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <option value="PLANNING">Planning</option>
                                     <option value="IN_PROGRESS">In Progress</option>
@@ -321,74 +339,82 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
 
                         <div className="flex items-center gap-3 bg-cyan-50/50 p-5 rounded-2xl border border-cyan-100">
                             <input 
+                                disabled={isCompleted}
                                 type="checkbox" id="recruiting" checked={!!formData.is_recruiting} 
                                 onChange={(e) => setFormData({...formData, is_recruiting: e.target.checked ? 1 : 0})}
-                                className="w-6 h-6 accent-cyan-600 rounded-lg cursor-pointer"
+                                className="w-6 h-6 accent-cyan-600 rounded-lg cursor-pointer disabled:cursor-not-allowed"
                             />
-                            <label htmlFor="recruiting" className="font-bold text-cyan-800 cursor-pointer select-none">
+                            <label htmlFor="recruiting" className={`font-bold select-none ${isCompleted ? 'text-gray-400' : 'text-cyan-800 cursor-pointer'}`}>
                                 กำลังเปิดรับสมัครสมาชิกเพิ่ม (Recruiting Mode)
                             </label>
                         </div>
 
-                        <button 
-                            onClick={handleUpdateProject} disabled={isSaving}
-                            className="w-full py-4.5 bg-cyan-600 text-white font-bold rounded-2xl shadow-lg hover:bg-cyan-700 transition-all disabled:opacity-50 active:scale-[0.98]"
-                        >
-                            {isSaving ? "กำลังบันทึก..." : "Update Project Detail"}
-                        </button>
+                        {/* ซ่อนปุ่มถ้าสถานะเป็น Completed แล้ว */}
+                        {!isCompleted && (
+                            <>
+                                <button 
+                                    onClick={handleUpdateProject} disabled={isSaving}
+                                    className="w-full py-4.5 bg-cyan-600 text-white font-bold rounded-2xl shadow-lg hover:bg-cyan-700 transition-all disabled:opacity-50 active:scale-[0.98]"
+                                >
+                                    {isSaving ? "กำลังบันทึก..." : "Update Project Detail"}
+                                </button>
 
-                        <div className="mt-6 border-t border-red-50 pt-6">
-                            <p className="text-xs font-bold text-red-400 uppercase tracking-widest mb-3">Danger Zone</p>
-                            <button 
-                                onClick={handleDeleteProject} disabled={isDeleting}
-                                className="w-full py-4 border-2 border-dashed border-red-100 text-red-400 font-bold rounded-2xl hover:bg-red-50 hover:border-red-200 transition-all"
-                            >
-                                {isDeleting ? "Deleting..." : "🗑️ Delete this project"}
-                            </button>
-                        </div>
+                                <div className="mt-6 border-t border-red-50 pt-6">
+                                    <p className="text-xs font-bold text-red-400 uppercase tracking-widest mb-3">Danger Zone</p>
+                                    <button 
+                                        onClick={handleDeleteProject} disabled={isDeleting}
+                                        className="w-full py-4 border-2 border-dashed border-red-100 text-red-400 font-bold rounded-2xl hover:bg-red-50 hover:border-red-200 transition-all"
+                                    >
+                                        {isDeleting ? "Deleting..." : "🗑️ Delete this project"}
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     {/* Right Column: Requests & Members */}
                     <div className="flex flex-col gap-8">
                         
-                        {/* Join Requests Section */}
-                        <div className="bg-white rounded-[32px] p-6 shadow-sm border border-amber-100 flex flex-col gap-4">
-                            <h2 className="text-md font-bold text-amber-600 flex items-center justify-between">
-                                <span className="flex items-center gap-2">🔔 Join Requests</span>
-                                <span className="bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full">{requests.length}</span>
-                            </h2>
-                            <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
-                                {requests.length === 0 ? (
-                                    <div className="py-10 text-center flex flex-col items-center gap-2">
-                                        <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 text-xl">📭</div>
-                                        <p className="text-xs text-gray-400 italic">No pending requests</p>
-                                    </div>
-                                ) : (
-                                    requests.map(req => (
-                                        <div key={`req-${req.user_id}`} className="bg-amber-50/40 p-4 rounded-2xl border border-amber-100 flex flex-col gap-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-white rounded-full overflow-hidden border border-amber-200 shrink-0">
-                                                    {req.profile_image ? <Image src={req.profile_image} alt="" width={40} height={40} className="object-cover h-full w-full"/> : <IoPersonOutline className="text-gray-300 text-lg m-auto h-full"/>}
-                                                </div>
-                                                <div className="flex-1 overflow-hidden">
-                                                    <p className="font-bold text-sm text-gray-800 truncate hover:underline cursor-pointer" onClick={() => router.push(`/profile/${req.user_id}`)}>{req.full_name}</p>
-                                                    <p className="text-[10px] text-gray-500">{req.primary_role || "Interested Member"}</p>
-                                                </div>
-                                            </div>
-                                            {req.request_message && (
-                                                <div className="text-[11px] text-amber-800 bg-white/60 p-2.5 rounded-xl border border-amber-100 italic">
-                                                    "{req.request_message}"
-                                                </div>
-                                            )}
-                                            <div className="flex gap-2">
-                                                <button onClick={() => handleRequestAction('approve_request', req.request_id, req.user_id)} className="flex-1 bg-green-500 text-white py-2 rounded-xl text-xs font-bold hover:bg-green-600 transition-colors shadow-sm">Accept</button>
-                                                <button onClick={() => handleRequestAction('reject_request', req.request_id, req.user_id)} className="flex-1 bg-white text-red-500 border border-red-100 py-2 rounded-xl text-xs font-bold hover:bg-red-50 transition-colors">Reject</button>
-                                            </div>
+                        {/* ซ่อนคำขอเข้าทีมถ้าสถานะเป็น Completed */}
+                        {!isCompleted && (
+                            <div className="bg-white rounded-[32px] p-6 shadow-sm border border-amber-100 flex flex-col gap-4">
+                                <h2 className="text-md font-bold text-amber-600 flex items-center justify-between">
+                                    <span className="flex items-center gap-2">🔔 Join Requests</span>
+                                    <span className="bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full">{requests.length}</span>
+                                </h2>
+                                <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
+                                    {requests.length === 0 ? (
+                                        <div className="py-10 text-center flex flex-col items-center gap-2">
+                                            <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 text-xl">📭</div>
+                                            <p className="text-xs text-gray-400 italic">No pending requests</p>
                                         </div>
-                                    ))
-                                )}
+                                    ) : (
+                                        requests.map(req => (
+                                            <div key={`req-${req.user_id}`} className="bg-amber-50/40 p-4 rounded-2xl border border-amber-100 flex flex-col gap-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-white rounded-full overflow-hidden border border-amber-200 shrink-0">
+                                                        {req.profile_image ? <Image src={req.profile_image} alt="" width={40} height={40} className="object-cover h-full w-full"/> : <IoPersonOutline className="text-gray-300 text-lg m-auto h-full"/>}
+                                                    </div>
+                                                    <div className="flex-1 overflow-hidden">
+                                                        <p className="font-bold text-sm text-gray-800 truncate hover:underline cursor-pointer" onClick={() => router.push(`/profile/${req.user_id}`)}>{req.full_name}</p>
+                                                        <p className="text-[10px] text-gray-500">{req.primary_role || "Interested Member"}</p>
+                                                    </div>
+                                                </div>
+                                                {req.request_message && (
+                                                    <div className="text-[11px] text-amber-800 bg-white/60 p-2.5 rounded-xl border border-amber-100 italic">
+                                                        "{req.request_message}"
+                                                    </div>
+                                                )}
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleRequestAction('approve_request', req.request_id, req.user_id)} className="flex-1 bg-green-500 text-white py-2 rounded-xl text-xs font-bold hover:bg-green-600 transition-colors shadow-sm">Accept</button>
+                                                    <button onClick={() => handleRequestAction('reject_request', req.request_id, req.user_id)} className="flex-1 bg-white text-red-500 border border-red-100 py-2 rounded-xl text-xs font-bold hover:bg-red-50 transition-colors">Reject</button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Current Members Section */}
                         <div className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-100 flex flex-col gap-4">
@@ -400,7 +426,7 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                                 {members.map(member => (
                                     <div 
                                         key={`mem-${member.user_id}`} 
-                                        className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${member.member_status === 'LEAVE_PENDING' ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-100'}`}
+                                        className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${member.member_status === 'LEAVE_PENDING' && !isCompleted ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-100'}`}
                                     >
                                         <div className="flex items-center gap-3 flex-1 overflow-hidden">
                                             <div className="w-10 h-10 bg-white rounded-full overflow-hidden border border-gray-200 shrink-0 cursor-pointer" onClick={() => router.push(`/profile/${member.user_id}`)}>
@@ -411,7 +437,7 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                                                     {member.full_name}
                                                     {project.owner_id_ref === member.user_id && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded ml-1 uppercase">Owner</span>}
                                                 </p>
-                                                {member.member_status === 'LEAVE_PENDING' ? (
+                                                {member.member_status === 'LEAVE_PENDING' && !isCompleted ? (
                                                     <p className="text-[10px] text-orange-600 font-medium italic animate-pulse">ขอลาออก: "{member.status_reason}"</p>
                                                 ) : (
                                                     <p className="text-[10px] text-gray-500 truncate">{member.primary_role || "Member"}</p>
@@ -419,36 +445,50 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                                             </div>
                                         </div>
                                         
+                                        {/* 🚀 ควบคุมการแสดงผลปุ่ม Action ของสมาชิก */}
                                         <div className="pl-2 flex items-center gap-2">
-                                            {member.member_status === 'LEAVE_PENDING' ? (
-                                                <>
-                                                    <button 
-                                                        onClick={() => handleApproveLeave(member.user_id)}
-                                                        className="bg-orange-500 text-white text-[10px] font-bold px-3 py-2 rounded-xl shadow-md hover:bg-orange-600 active:scale-95"
-                                                    >
-                                                        อนุมัติ
-                                                    </button>
-                                                    {/* 🚀 ปุ่มปฏิเสธการลาออก */}
-                                                    <button 
-                                                        onClick={() => handleRejectLeave(member.user_id)}
-                                                        className="w-9 h-9 flex justify-center items-center bg-white border border-orange-200 text-orange-500 rounded-xl hover:bg-orange-500 hover:text-white transition-all shadow-sm"
-                                                        title="ปฏิเสธคำขอลาออก"
-                                                    >
-                                                        <BiX className="text-xl" />
-                                                    </button>
-                                                </>
-                                            ) : (
+                                            {isCompleted ? (
+                                                // ถ้าโปรเจกต์ COMPLETED แล้ว ให้แสดงปุ่มประเมิน (เว้นตัวเอง)
                                                 project.owner_id_ref !== member.user_id && (
                                                     <button 
-                                                        onClick={() => handleKickMember(member.user_id)}
-                                                        className="w-9 h-9 flex justify-center items-center bg-white text-red-300 rounded-xl hover:text-red-500 hover:bg-red-50 transition-all group"
-                                                        title="Kick Member"
+                                                        onClick={() => router.push(`/evaluate/${projectId}/${member.user_id}`)}
+                                                        className="flex items-center gap-1 bg-green-50 text-green-600 border border-green-200 text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-green-600 hover:text-white transition-all shadow-sm whitespace-nowrap"
                                                     >
-                                                        <BiTrash className="text-lg group-hover:scale-110 transition-transform" />
+                                                        <MdRateReview className="text-sm"/> Evaluate
                                                     </button>
+                                                )
+                                            ) : (
+                                                // ถ้ายังไม่ COMPLETED ให้แสดงปุ่ม อนุมัติ/เตะ เหมือนเดิม
+                                                member.member_status === 'LEAVE_PENDING' ? (
+                                                    <>
+                                                        <button 
+                                                            onClick={() => handleApproveLeave(member.user_id)}
+                                                            className="bg-orange-500 text-white text-[10px] font-bold px-3 py-2 rounded-xl shadow-md hover:bg-orange-600 active:scale-95"
+                                                        >
+                                                            อนุมัติ
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleRejectLeave(member.user_id)}
+                                                            className="w-9 h-9 flex justify-center items-center bg-white border border-orange-200 text-orange-500 rounded-xl hover:bg-orange-500 hover:text-white transition-all shadow-sm"
+                                                            title="ปฏิเสธคำขอลาออก"
+                                                        >
+                                                            <BiX className="text-xl" />
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    project.owner_id_ref !== member.user_id && (
+                                                        <button 
+                                                            onClick={() => handleKickMember(member.user_id)}
+                                                            className="w-9 h-9 flex justify-center items-center bg-white text-red-300 rounded-xl hover:text-red-500 hover:bg-red-50 transition-all group"
+                                                            title="Kick Member"
+                                                        >
+                                                            <BiTrash className="text-lg group-hover:scale-110 transition-transform" />
+                                                        </button>
+                                                    )
                                                 )
                                             )}
                                         </div>
+
                                     </div>
                                 ))}
                             </div>

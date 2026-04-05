@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImFilesEmpty } from "react-icons/im";
 import { BsStars } from "react-icons/bs";
-import { MdNavigateNext, MdSchool, MdWork, MdEmojiEvents, MdAccessTime, MdPlayCircleOutline, MdCheckCircleOutline } from "react-icons/md";
+import { MdNavigateNext, MdSchool, MdWork, MdEmojiEvents, MdAccessTime, MdPlayCircleOutline, MdCheckCircleOutline, MdRateReview } from "react-icons/md";
 import { stringToColor } from "@/lib/utils";
 
 interface UserProfile { id: number; email: string; full_name: string; primary_role: string; picture: string | null; }
@@ -50,6 +50,12 @@ export default function MyTeam() {
         fetchMyTeams();
     }, [currentUser]);
 
+    // 🚀 แยกโปรเจกต์ที่ยังไม่เสร็จ (Active) กับที่เสร็จแล้ว (Completed)
+    const activeOwned = ownedProjects.filter(p => p.status !== 'COMPLETED');
+    const completedOwned = ownedProjects.filter(p => p.status === 'COMPLETED');
+    const activeJoined = joinedProjects.filter(p => p.status !== 'COMPLETED');
+    const completedJoined = joinedProjects.filter(p => p.status === 'COMPLETED');
+
     const getEnvBadge = (env_type: string) => {
         switch(env_type) {
             case 'education': return <span className="flex items-center gap-1 bg-blue-50 text-blue-600 border border-blue-100 px-2 py-1 rounded text-[10px] font-bold"><MdSchool/> Education</span>;
@@ -63,7 +69,7 @@ export default function MyTeam() {
         switch(status) {
             case 'PLANNING': return <span className="flex items-center gap-1 text-yellow-600 bg-yellow-50 px-2 py-1 rounded-md text-[10px] font-bold"><MdAccessTime/> Planning</span>;
             case 'IN_PROGRESS': return <span className="flex items-center gap-1 text-cyan-600 bg-cyan-50 px-2 py-1 rounded-md text-[10px] font-bold"><MdPlayCircleOutline/> In Progress</span>;
-            case 'COMPLETED': return <span className="flex items-center gap-1 text-gray-500 bg-gray-100 px-2 py-1 rounded-md text-[10px] font-bold"><MdCheckCircleOutline/> Completed</span>;
+            case 'COMPLETED': return <span className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-1 rounded-md text-[10px] font-bold"><MdCheckCircleOutline/> Completed</span>;
             default: return null;
         }
     };
@@ -82,8 +88,7 @@ export default function MyTeam() {
                 )}
             </div>
 
-            {/* 🚀 แจ้งเตือนแสดงเฉพาะคนที่เป็น Owner และมีคำขอเข้า/ออกค้างอยู่ */}
-            {isOwner && (item.pending_join_count > 0 || item.pending_leave_count > 0) && (
+            {isOwner && (item.pending_join_count > 0 || item.pending_leave_count > 0) && item.status !== 'COMPLETED' && (
                 <div className="flex flex-wrap gap-2 mb-3">
                     {item.pending_join_count > 0 && (
                         <span className="bg-red-50 text-red-500 border border-red-200 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 animate-pulse shadow-sm">
@@ -123,18 +128,27 @@ export default function MyTeam() {
             <div className="flex flex-col gap-3">
                 <div className="flex justify-between items-center">
                     {item.status && getStatusBadge(item.status)}
-                    <span className={`flex items-center gap-1.5 text-[11px] font-bold ${item.is_recruiting ? 'text-green-500' : 'text-red-400'}`}>
-                        <span className={`w-2 h-2 rounded-full ${item.is_recruiting ? 'bg-green-500 animate-pulse' : 'bg-red-400'}`}></span>
-                        {item.is_recruiting ? 'Recruiting' : 'Closed'}
-                    </span>
+                    {item.status !== 'COMPLETED' && (
+                        <span className={`flex items-center gap-1.5 text-[11px] font-bold ${item.is_recruiting ? 'text-green-500' : 'text-red-400'}`}>
+                            <span className={`w-2 h-2 rounded-full ${item.is_recruiting ? 'bg-green-500 animate-pulse' : 'bg-red-400'}`}></span>
+                            {item.is_recruiting ? 'Recruiting' : 'Closed'}
+                        </span>
+                    )}
                 </div>
                 <div className="flex justify-between items-center text-xs font-medium text-gray-400 mt-1">
                     <p className="flex items-center gap-1">
                         <span className="font-bold text-gray-600">{item.members.split("/")[0]}</span> 
                         Enrolled / Need {item.members.split("/")[1]}
                     </p>
-                    <div className="flex items-center gap-1 text-cyan-500 font-bold hover:text-cyan-600 transition-colors">
-                        {isOwner ? "Manage Team" : "View Details"} <MdNavigateNext className="text-xl" />
+                    
+                    {/* 🚀 ถ้าโปรเจกต์ Complete ให้เปลี่ยนข้อความเป็นปุ่มประเมิน หรือแสดงสถานะประเมิน */}
+                    <div className={`flex items-center gap-1 font-bold transition-colors ${item.status === 'COMPLETED' ? 'text-green-600 hover:text-green-700' : 'text-cyan-500 hover:text-cyan-600'}`}>
+                        {item.status === 'COMPLETED' ? (
+                            <span className="flex items-center gap-1"><MdRateReview className="text-lg"/> Evaluate Team</span>
+                        ) : (
+                            isOwner ? "Manage Team" : "View Details"
+                        )} 
+                        <MdNavigateNext className="text-xl" />
                     </div>
                 </div>
             </div>
@@ -152,48 +166,76 @@ export default function MyTeam() {
                     <p className="text-gray-500 font-medium">จัดการโครงการที่คุณเป็นเจ้าของ และโครงการที่คุณเข้าร่วม</p>
                 </div>
 
-                <div className="flex flex-col gap-6 w-full">
-                    <div className="flex items-end gap-3 px-2 border-b border-gray-200 pb-4">
-                        <h2 className="text-2xl font-bold text-gray-800">👑 Projects I Created</h2>
-                        <span className="text-sm font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
-                            {ownedProjects.length} Projects
-                        </span>
+                {/* --- ส่วนที่ 1: โปรเจกต์ที่กำลังดำเนินการ (Active) --- */}
+                <div className="space-y-12">
+                    {/* Owned Active */}
+                    <div className="flex flex-col gap-6 w-full">
+                        <div className="flex items-end gap-3 px-2 border-b border-gray-200 pb-4">
+                            <h2 className="text-2xl font-bold text-gray-800">👑 Projects I Created</h2>
+                            <span className="text-sm font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
+                                {activeOwned.length} Active
+                            </span>
+                        </div>
+                        {activeOwned.length === 0 ? (
+                            <div className="py-10 text-center text-gray-400 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200 text-sm">ไม่มีโครงการที่กำลังดำเนินการ</div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+                                {activeOwned.map(item => <ProjectCard key={item.id} item={item} isOwner={true} />)}
+                            </div>
+                        )}
                     </div>
 
-                    {ownedProjects.length === 0 ? (
-                        <div className="w-full flex justify-center items-center py-16 text-gray-400 flex-col gap-3 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
-                            <ImFilesEmpty className="text-5xl text-gray-300 mb-2" />
-                            <p className="text-lg font-bold text-gray-500">คุณยังไม่ได้สร้างโครงการใดๆ</p>
-                            <button onClick={() => router.push('/create')} className="text-cyan-500 font-bold hover:underline">สร้างโครงการใหม่เลย!</button>
+                    {/* Joined Active */}
+                    <div className="flex flex-col gap-6 w-full">
+                        <div className="flex items-end gap-3 px-2 border-b border-gray-200 pb-4">
+                            <h2 className="text-2xl font-bold text-gray-800">👥 Projects I Joined</h2>
+                            <span className="text-sm font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
+                                {activeJoined.length} Active
+                            </span>
                         </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-                            {ownedProjects.map(item => <ProjectCard key={item.id} item={item} isOwner={true} />)}
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex flex-col gap-6 w-full">
-                    <div className="flex items-end gap-3 px-2 border-b border-gray-200 pb-4">
-                        <h2 className="text-2xl font-bold text-gray-800">👥 Projects I Joined</h2>
-                        <span className="text-sm font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-                            {joinedProjects.length} Projects
-                        </span>
+                        {activeJoined.length === 0 ? (
+                            <div className="py-10 text-center text-gray-400 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200 text-sm">ยังไม่ได้เข้าร่วมโครงการที่กำลังดำเนินการ</div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+                                {activeJoined.map(item => <ProjectCard key={item.id} item={item} isOwner={false} />)}
+                            </div>
+                        )}
                     </div>
-
-                    {joinedProjects.length === 0 ? (
-                        <div className="w-full flex justify-center items-center py-16 text-gray-400 flex-col gap-3 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
-                            <ImFilesEmpty className="text-5xl text-gray-300 mb-2" />
-                            <p className="text-lg font-bold text-gray-500">คุณยังไม่ได้เข้าร่วมโครงการใดๆ</p>
-                            <button onClick={() => router.push('/')} className="text-cyan-500 font-bold hover:underline">ค้นหาโครงการที่น่าสนใจ</button>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-                            {joinedProjects.map(item => <ProjectCard key={item.id} item={item} isOwner={false} />)}
-                        </div>
-                    )}
                 </div>
 
+                {/* --- ส่วนที่ 2: โปรเจกต์ที่เสร็จสิ้นแล้ว (Completed / Evaluation Zone) --- */}
+                {(completedOwned.length > 0 || completedJoined.length > 0) && (
+                    <div className="mt-8 pt-12 border-t-4 border-double border-gray-200">
+                        <div className="flex flex-col gap-2 mb-8 text-center md:text-left">
+                            <h2 className="text-3xl font-black text-gray-900 flex items-center justify-center md:justify-start gap-3">
+                                <span className="text-4xl">🏁</span> COMPLETED PROJECTS
+                            </h2>
+                            <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">คุณสามารถเข้าประเมินเพื่อนร่วมทีมได้ในส่วนนี้</p>
+                        </div>
+
+                        <div className="space-y-12 bg-gray-50/30 p-4 md:p-8 rounded-[40px] border-2 border-gray-100">
+                            {/* Owned Completed */}
+                            {completedOwned.length > 0 && (
+                                <div className="flex flex-col gap-6">
+                                    <h3 className="text-lg font-black text-amber-700 px-4 py-1 bg-amber-100 w-fit rounded-lg">MY OWN PROJECTS</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {completedOwned.map(item => <ProjectCard key={item.id} item={item} isOwner={true} />)}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Joined Completed */}
+                            {completedJoined.length > 0 && (
+                                <div className="flex flex-col gap-6">
+                                    <h3 className="text-lg font-black text-green-700 px-4 py-1 bg-green-100 w-fit rounded-lg">PROJECTS I JOINED</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {completedJoined.map(item => <ProjectCard key={item.id} item={item} isOwner={false} />)}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
