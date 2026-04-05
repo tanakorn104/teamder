@@ -42,7 +42,6 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
 
     const fetchTeamData = async () => {
         try {
-            // เรียกไปยัง API ที่เราเพิ่งอัปเดต SQL Query (ที่ใช้ MAX(id))
             const res = await fetch(`/api/myteam/${projectId}`);
             if (res.ok) {
                 const data = await res.json();
@@ -54,17 +53,15 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                 }
 
                 setProject(data.project);
-                setMembers(data.members); // สมาชิกที่ถูกกรองตัวล่าสุดมาแล้ว
-                setRequests(data.requests); // คำขอที่ถูกกรองตัวล่าสุดมาแล้ว
+                setMembers(data.members);
+                setRequests(data.requests);
                 
                 let parsedTags = [];
                 try {
                     parsedTags = typeof data.project.tags === 'string' 
                         ? JSON.parse(data.project.tags) 
                         : (data.project.tags || []);
-                } catch (e) {
-                    console.error("Tags parse error");
-                }
+                } catch (e) {}
                 
                 setFormData({
                     title: data.project.title || "",
@@ -145,7 +142,7 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action, payload: { request_id: requestId, target_user_id: userId } })
             });
-            if (res.ok) fetchTeamData(); // โหลดข้อมูลใหม่หลังจากตัดสินใจ
+            if (res.ok) fetchTeamData(); 
         } catch (e) { alert("เกิดข้อผิดพลาด"); }
     };
 
@@ -177,7 +174,21 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
         } catch (e) { alert("เกิดข้อผิดพลาด"); }
     };
 
-    if (loading) return <div className="min-h-screen flex justify-center items-center text-gray-400 font-bold">Loading Team Dashboard...</div>;
+    // 🚀 ฟังก์ชันปฏิเสธคำขอลาออก
+    const handleRejectLeave = async (userId: number) => {
+        if (!confirm("ปฏิเสธคำขอลาออก และให้สมาชิกท่านนี้อยู่ในทีมต่อไป?")) return;
+        try {
+            const res = await fetch(`/api/myteam/${projectId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'reject_leave', payload: { target_user_id: userId } })
+            });
+            if (res.ok) fetchTeamData();
+            else alert("ดำเนินการไม่สำเร็จ");
+        } catch (e) { alert("เกิดข้อผิดพลาด"); }
+    };
+
+    if (loading) return <div className="min-h-screen flex justify-center items-center text-gray-400 font-bold tracking-widest animate-pulse">LOADING DASHBOARD...</div>;
     if (!project) return null;
 
     const unselectedTags = availableTags.filter(at => !(formData.tags || []).some((ft: any) => ft.id === at.id));
@@ -266,7 +277,6 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                             />
                         </div>
 
-                        {/* Tags Section */}
                         <div className="flex flex-col gap-3 bg-gray-50/50 border border-gray-100 p-5 rounded-3xl">
                             <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Project Tags</label>
                             <div className="flex flex-wrap gap-2 min-h-[40px]">
@@ -409,14 +419,24 @@ export default function ManageTeamDetail({ params }: { params: Promise<{ id: str
                                             </div>
                                         </div>
                                         
-                                        <div className="pl-2">
+                                        <div className="pl-2 flex items-center gap-2">
                                             {member.member_status === 'LEAVE_PENDING' ? (
-                                                <button 
-                                                    onClick={() => handleApproveLeave(member.user_id)}
-                                                    className="bg-orange-500 text-white text-[10px] font-bold px-3 py-2 rounded-xl shadow-md hover:bg-orange-600 active:scale-95"
-                                                >
-                                                    อนุมัติออก
-                                                </button>
+                                                <>
+                                                    <button 
+                                                        onClick={() => handleApproveLeave(member.user_id)}
+                                                        className="bg-orange-500 text-white text-[10px] font-bold px-3 py-2 rounded-xl shadow-md hover:bg-orange-600 active:scale-95"
+                                                    >
+                                                        อนุมัติ
+                                                    </button>
+                                                    {/* 🚀 ปุ่มปฏิเสธการลาออก */}
+                                                    <button 
+                                                        onClick={() => handleRejectLeave(member.user_id)}
+                                                        className="w-9 h-9 flex justify-center items-center bg-white border border-orange-200 text-orange-500 rounded-xl hover:bg-orange-500 hover:text-white transition-all shadow-sm"
+                                                        title="ปฏิเสธคำขอลาออก"
+                                                    >
+                                                        <BiX className="text-xl" />
+                                                    </button>
+                                                </>
                                             ) : (
                                                 project.owner_id_ref !== member.user_id && (
                                                     <button 

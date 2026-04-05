@@ -76,6 +76,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 }
 
+// ... (โค้ดส่วนบนเหมือนเดิม)
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const projectId = (await params).id;
     const userId = await getCurrentUserId(req);
@@ -114,24 +116,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             return NextResponse.json({ success: true, message: "อัปเดตข้อมูลสำเร็จ" });
         } 
 
-        // --- ACTION: อนุมัติการเข้าร่วม (Insert ทั้ง 2 ตาราง) ---
+        // --- ACTION: อนุมัติการเข้าร่วม ---
         else if (action === 'approve_request') {
             await connection.beginTransaction();
-            // 1. ใส่สถานะ APPROVED ในตารางคำขอ
             await connection.execute(`INSERT INTO join_requests (project_id_ref, user_id_ref, status) VALUES (?, ?, 'APPROVED')`, [projectId, payload.target_user_id]);
-            // 2. ใส่สถานะ ACTIVE ในตารางสมาชิก (แถวใหม่)
             await connection.execute(`INSERT INTO project_members (project_id_ref, user_id_ref, member_status) VALUES (?, ?, 'ACTIVE')`, [projectId, payload.target_user_id]);
             await connection.commit();
             return NextResponse.json({ success: true, message: "รับเข้าทีมเรียบร้อยแล้ว" });
         } 
 
-        // --- ACTION: ปฏิเสธการเข้าร่วม (Insert ลง join_requests แถวใหม่) ---
+        // --- ACTION: ปฏิเสธการเข้าร่วม ---
         else if (action === 'reject_request') {
             await connection.execute(`INSERT INTO join_requests (project_id_ref, user_id_ref, status) VALUES (?, ?, 'REJECTED')`, [projectId, payload.target_user_id]);
             return NextResponse.json({ success: true, message: "ปฏิเสธคำขอแล้ว" });
         } 
 
-        // --- ACTION: เตะออกจากทีม (Insert ลง project_members แถวใหม่) ---
+        // --- ACTION: เตะออกจากทีม ---
         else if (action === 'kick_member') {
             if (payload.target_user_id === userId) return NextResponse.json({ error: "ลบตัวเองไม่ได้" }, { status: 400 });
             await connection.execute(
@@ -141,13 +141,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             return NextResponse.json({ success: true, message: "เตะสมาชิกออกจากทีมแล้ว" });
         }
 
-        // --- ACTION: อนุมัติให้ออก (Insert ลง project_members แถวใหม่) ---
+        // --- ACTION: อนุมัติให้ออก ---
         else if (action === 'approve_leave') {
             await connection.execute(
                 `INSERT INTO project_members (project_id_ref, user_id_ref, member_status) VALUES (?, ?, 'LEFT')`, 
                 [projectId, payload.target_user_id]
             );
             return NextResponse.json({ success: true, message: "อนุมัติการออกจากทีมแล้ว" });
+        }
+
+        // 🚀 --- ACTION ใหม่: ปฏิเสธการขอลาออก (ดึงสมาชิกกลับเป็น ACTIVE) ---
+        else if (action === 'reject_leave') {
+            await connection.execute(
+                `INSERT INTO project_members (project_id_ref, user_id_ref, member_status, status_reason) VALUES (?, ?, 'ACTIVE', 'Leader rejected leave request')`, 
+                [projectId, payload.target_user_id]
+            );
+            return NextResponse.json({ success: true, message: "ปฏิเสธการขอลาออกเรียบร้อย" });
         }
 
         return NextResponse.json({ error: "Invalid action" }, { status: 400 });

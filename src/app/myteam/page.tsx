@@ -35,7 +35,6 @@ export default function MyTeam() {
         const fetchMyTeams = async () => {
             if (!currentUser?.id) return;
             try {
-                // 🚀 แก้เป็น /api/myteam
                 const res = await fetch(`/api/myteam?userId=${currentUser.id}`);
                 if (res.ok) {
                     const data = await res.json();
@@ -71,7 +70,6 @@ export default function MyTeam() {
 
     const ProjectCard = ({ item, isOwner }: { item: any, isOwner: boolean }) => (
         <div 
-            // 🚀 แก้เป็น /myteam/
             onClick={() => isOwner ? router.push(`/myteam/${item.id}`) : router.push(`/project/${item.id}`)}
             className="bg-white rounded-[24px] p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-50 flex flex-col h-full hover:shadow-xl hover:-translate-y-1 cursor-pointer transition-all duration-300 relative overflow-hidden"
         >
@@ -83,6 +81,22 @@ export default function MyTeam() {
                     </span>
                 )}
             </div>
+
+            {/* 🚀 แจ้งเตือนแสดงเฉพาะคนที่เป็น Owner และมีคำขอเข้า/ออกค้างอยู่ */}
+            {isOwner && (item.pending_join_count > 0 || item.pending_leave_count > 0) && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                    {item.pending_join_count > 0 && (
+                        <span className="bg-red-50 text-red-500 border border-red-200 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 animate-pulse shadow-sm">
+                            🔔 {item.pending_join_count} คำขอเข้าทีม
+                        </span>
+                    )}
+                    {item.pending_leave_count > 0 && (
+                        <span className="bg-orange-50 text-orange-600 border border-orange-200 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 animate-pulse shadow-sm">
+                            ⚠️ {item.pending_leave_count} ขอออกจากทีม
+                        </span>
+                    )}
+                </div>
+            )}
 
             <div className="flex justify-between items-start gap-4 mb-2">
                 <h3 className="font-bold text-base leading-tight flex-1 group-hover:text-cyan-600 transition-colors">{item.name}</h3>
