@@ -14,29 +14,58 @@ export async function GET(req: NextRequest) {
     const connection = await db();
 
     try {
-        // 🚀 ดึงโปรเจกต์ที่ตัวเองเป็นเจ้าของ (OWNER) และยังไม่ถูกลบ
+        // 🚀 ดึงโปรเจกต์ที่ตัวเองเป็นเจ้าของ (OWNER) 
+        // 💡 อัปเดต: นับเฉพาะ current_members ที่แถวล่าสุดเป็น ACTIVE
         const [ownedRows]: any = await connection.execute(
             `SELECT p.id, p.visibility_type AS \`group\`, p.title AS name, p.description, 
                 (SELECT COALESCE(JSON_ARRAYAGG(t.tag_name), JSON_ARRAY()) 
                  FROM project_tags pt JOIN tags t ON pt.tag_id_ref = t.id WHERE pt.project_id_ref = p.id) AS tag,
                 p.target_inst_id, p.subject_code, p.section, p.env_type, p.status, p.is_recruiting, p.max_members,
-                (SELECT COUNT(*) FROM project_members WHERE project_id_ref = p.id AND member_status = 'ACTIVE') AS current_members
+                
+                (SELECT COUNT(*) 
+                 FROM project_members pm1 
+                 WHERE pm1.project_id_ref = p.id 
+                   AND pm1.member_status = 'ACTIVE' 
+                   AND pm1.id = (
+                       SELECT MAX(id) FROM project_members pm2 
+                       WHERE pm2.project_id_ref = p.id AND pm2.user_id_ref = pm1.user_id_ref
+                   )
+                ) AS current_members
+
              FROM projects p 
              WHERE p.owner_id_ref = ? AND p.deleted_at IS NULL
              ORDER BY p.id DESC`,
             [userId]
         );
 
-        // 🚀 ดึงโปรเจกต์ที่ตัวเองเป็นสมาชิก ACTIVE (แต่ไม่ใช่เจ้าของ) และยังไม่ถูกลบ
+        // 🚀 ดึงโปรเจกต์ที่ตัวเองเป็นสมาชิก (JOINED) 
+        // 💡 อัปเดต: เช็คว่าสถานะล่าสุดของตัวเองต้องเป็น ACTIVE และนับสมาชิกเฉพาะที่ล่าสุดเป็น ACTIVE
         const [joinedRows]: any = await connection.execute(
             `SELECT p.id, p.visibility_type AS \`group\`, p.title AS name, p.description, 
                 (SELECT COALESCE(JSON_ARRAYAGG(t.tag_name), JSON_ARRAY()) 
                  FROM project_tags pt JOIN tags t ON pt.tag_id_ref = t.id WHERE pt.project_id_ref = p.id) AS tag,
                 p.target_inst_id, p.subject_code, p.section, p.env_type, p.status, p.is_recruiting, p.max_members,
-                (SELECT COUNT(*) FROM project_members WHERE project_id_ref = p.id AND member_status = 'ACTIVE') AS current_members
+                
+                (SELECT COUNT(*) 
+                 FROM project_members pm1 
+                 WHERE pm1.project_id_ref = p.id 
+                   AND pm1.member_status = 'ACTIVE' 
+                   AND pm1.id = (
+                       SELECT MAX(id) FROM project_members pm2 
+                       WHERE pm2.project_id_ref = p.id AND pm2.user_id_ref = pm1.user_id_ref
+                   )
+                ) AS current_members
+
              FROM projects p
              JOIN project_members pm ON p.id = pm.project_id_ref
-             WHERE pm.user_id_ref = ? AND pm.member_status = 'ACTIVE' AND p.owner_id_ref != ? AND p.deleted_at IS NULL
+             WHERE pm.user_id_ref = ? 
+               AND pm.member_status = 'ACTIVE' 
+               AND pm.id = (
+                   SELECT MAX(id) FROM project_members pm3 
+                   WHERE pm3.project_id_ref = p.id AND pm3.user_id_ref = pm.user_id_ref
+               )
+               AND p.owner_id_ref != ? 
+               AND p.deleted_at IS NULL
              ORDER BY p.id DESC`,
             [userId, userId]
         );
