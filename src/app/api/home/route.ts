@@ -32,11 +32,8 @@ export async function GET(req: NextRequest) {
              LEFT JOIN institutions i ON p.institution_id = i.id 
              WHERE p.user_id_ref = ?`, [userId]
         );
-        
-        if (profileRows.length > 0) {
-            userInstitutionId = profileRows[0].institution_id;
-            userInstName = profileRows[0].inst_name; // 👈 ดึงชื่อมาเก็บไว้
-        }
+        userInstitutionId = profileRows.length > 0 ? profileRows[0].institution_id : null;
+        userInstName = profileRows.length > 0 ? profileRows[0].inst_name : null;
 
         if (offset === 0) {
             const [userRows]: any = await connection.execute(
@@ -54,7 +51,6 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // 🚀 สร้างตัวแปรแยกเก็บเงื่อนไข WHERE เพื่อความปลอดภัย ไม่บั๊กเวลานับจำนวน
         let whereClause = ` FROM projects p WHERE p.is_recruiting = TRUE`;
         let queryParams: any[] = [];
 
@@ -76,55 +72,89 @@ export async function GET(req: NextRequest) {
             queryParams.push(envType);
         }
 
-        // กรองตาม Text Search
+        // 🚀 กรองตาม Text Search (ค้นหาจากชื่อโปรเจกต์, รายละเอียด หรือ Tag ในตารางใหม่)
         if (q) {
-            whereClause += ` AND (p.title LIKE ? OR p.description LIKE ? OR p.tags LIKE ?)`;
+            whereClause += ` AND (
+                p.title LIKE ? 
+                OR p.description LIKE ? 
+                OR EXISTS (
+                    SELECT 1 FROM project_tags pt 
+                    JOIN tags t ON pt.tag_id_ref = t.id 
+                    WHERE pt.project_id_ref = p.id AND t.tag_name LIKE ?
+                )
+            )`;
             const searchPattern = `%${q}%`;
             queryParams.push(searchPattern, searchPattern, searchPattern);
         }
 
-        // 1. นำ whereClause ไปนับจำนวนทั้งหมดก่อน
+        // 1. นับจำนวนทั้งหมด
         const countSql = `SELECT COUNT(*) as total` + whereClause;
         const [countRows]: any = await connection.execute(countSql, queryParams);
         const totalProjects = countRows[0].total;
         const hasMore = (offset + limit) < totalProjects;
 
-        // 2. นำ whereClause ไปดึงข้อมูลจริงแบบจำกัดจำนวน (LIMIT / OFFSET)
+        // 2. ดึงข้อมูลจริงแบบจำกัดจำนวน (เพิ่มการดึงแท็กด้วย Subquery และดึง max_members ออกมาด้วย)
         const sql = `SELECT 
-            p.id, p.visibility_type AS \`group\`, p.title AS name, p.description, p.tags AS tag,
+            p.id, p.visibility_type AS \`group\`, p.title AS name, p.description, 
+            (
+                SELECT COALESCE(JSON_ARRAYAGG(t.tag_name), JSON_ARRAY()) 
+                FROM project_tags pt 
+                JOIN tags t ON pt.tag_id_ref = t.id 
+                WHERE pt.project_id_ref = p.id
+            ) AS tag,
             p.target_inst_id, p.subject_code, p.section, 
-            p.env_type, p.status, p.is_recruiting,
+            p.env_type, p.status, p.is_recruiting, p.max_members,
             (SELECT COUNT(*) FROM project_members WHERE project_id_ref = p.id AND member_status = 'ACTIVE') AS current_members
             ` + whereClause + ` ORDER BY p.id DESC LIMIT ? OFFSET ?`;
 
-        // แนบ Limit กับ Offset ต่อท้ายตัวแปรที่ไว้ใช้ Execute
         const fetchParams = [...queryParams, limit.toString(), offset.toString()];
         const [projectRows]: any = await connection.execute(sql, fetchParams);
 
         // คำนวณ AI
+       // คำนวณ AI
         const projectsData = await Promise.all(projectRows.map(async (p: any) => {
             let compatibleScore = 0;
             try {
                 const aiPayload = await getModelInputData(p.id, userId, true);
-                if (aiPayload && aiPayload.members.length > 0) {
+                
+                if (aiPayload && aiPayload.members && aiPayload.members.length > 0) {
                     const aiRes = await fetch("https://dev.teamder.online/model/predict", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json", "X-API-Key": process.env.lightGBM_X_API_KEY || "" },
+                        headers: { 
+                            "Content-Type": "application/json", 
+                            "X-API-Key": process.env.lightGBM_X_API_KEY || "" 
+                        },
                         body: JSON.stringify(aiPayload)
                     });
+
                     if (aiRes.ok) {
                         const aiResult = await aiRes.json();
-                        if (aiResult.status === "success") compatibleScore = Math.round(aiResult.overall_match_percent);
+                        if (aiResult.status === "success") {
+                            compatibleScore = Math.round(aiResult.overall_match_percent);
+                        } else {
+                            console.log(`🔴 [AI Warning] โปรเจกต์ ${p.id}: API ตอบกลับมาแต่ไม่ success ->`, aiResult);
+                        }
+                    } else {
+                        console.log(`🔴 [AI HTTP Error] โปรเจกต์ ${p.id}: API Error Status ${aiRes.status}`);
                     }
+                } else {
+                    console.log(`🟡 [AI Skip] โปรเจกต์ ${p.id}: ไม่มีสมาชิก (หรือดึงข้อมูล payload ไม่มา) เลยข้ามการคำนวณ AI`);
                 }
-            } catch (error) { }
+            } catch (error) { 
+                console.error(`💥 [AI Crash] โปรเจกต์ ${p.id}: ระบบประมวลผล AI พัง ->`, error);
+            }
 
             let parsedTags = [];
-            try { parsedTags = typeof p.tag === 'string' ? JSON.parse(p.tag) : p.tag; } catch (e) { }
+            try { 
+                parsedTags = typeof p.tag === 'string' ? JSON.parse(p.tag) : (p.tag || []); 
+            } catch (e) { 
+                parsedTags = []; 
+            }
 
             return {
                 id: p.id, group: p.group, name: p.name, description: p.description,
-                compatible: compatibleScore || 0, tag: parsedTags, members: `${p.current_members}/5`,
+                compatible: compatibleScore || 0, tag: parsedTags, 
+                members: `${p.current_members}/${p.max_members || 5}`,
                 target_inst_id: p.target_inst_id, subject_code: p.subject_code, section: p.section,
                 env_type: p.env_type,
                 status: p.status,
@@ -132,7 +162,6 @@ export async function GET(req: NextRequest) {
             };
         }));
 
-        // 🚀 คืนค่า userInstName กลับไปให้หน้าบ้านด้วย
         return NextResponse.json({ personal_data, projectsData, hasMore, userInstName });
 
     } catch (error: any) {

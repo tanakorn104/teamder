@@ -11,18 +11,19 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized: No token" }, { status: 401 });
         }
 
-       const googleProfile = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
+        const googleProfile = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
             headers: { Authorization: `Bearer ${token}` }
         });
         
-        // ✨ แก้ตรงนี้: ดึงตัวแปร sub ออกมาด้วย
+        // ดึงตัวแปร sub ออกมาด้วย
         const { sub, email, name, picture } = googleProfile.data;
 
         // 2. จัดการ Database
         const connection = await db();
         try {
+            // 🚀 แก้ตรงนี้: เพิ่ม up.institution_id ลงใน SELECT
             const [existingUsers]: any = await connection.execute(
-                `SELECT u.id, up.primary_role, up.province, up.district, up.user_description, up.profile_image 
+                `SELECT u.id, up.primary_role, up.province, up.district, up.user_description, up.profile_image, up.institution_id 
                  FROM users u 
                  LEFT JOIN user_profiles up ON u.id = up.user_id_ref 
                  WHERE u.email = ?`,
@@ -34,12 +35,11 @@ export async function GET(request: NextRequest) {
 
             if (existingUsers.length === 0) {
                 // --- กรณี: ผู้ใช้ใหม่ ---
-                // ✨ แก้ตรงนี้: ใช้ sub ของ Google เป็น user_id เลย (ถ้าไม่มีจริงๆ ค่อยเจนสำรอง)
                 const googleSubId = sub || `u_${Date.now().toString().slice(-6)}`;
                 
                 const [insertUser]: any = await connection.execute(
                     "INSERT INTO users (user_id, email, full_name) VALUES (?, ?, ?)",
-                    [googleSubId, email, safeName] // 👈 ยัด googleSubId ลงตาราง
+                    [googleSubId, email, safeName]
                 );
                 const newInternalId = insertUser.insertId;
 
@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
                     province: '',
                     district: '',
                     user_description: '',
+                    institution_id: 1, // 🚀 เพิ่ม institution_id เข้าไปใน Response
                     picture: picture || null
                 };
             } else {
@@ -67,7 +68,6 @@ export async function GET(request: NextRequest) {
                 
                 const dbUser = existingUsers[0];
 
-                // ✨ จุดที่ 2: แมปปิงข้อมูลที่ดึงมาส่งกลับไปให้ Frontend
                 userData = { 
                     id: dbUser.id, 
                     email, 
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
                     province: dbUser.province || '',
                     district: dbUser.district || '',
                     user_description: dbUser.user_description || '',
-                    // ให้ความสำคัญกับรูปใน DB ก่อน ถ้าไม่มีค่อยใช้รูปจาก Google
+                    institution_id: dbUser.institution_id || 1, // 🚀 เพิ่มตรงนี้ ให้ดึงจาก DB
                     picture: dbUser.profile_image || picture || null 
                 };
             }
