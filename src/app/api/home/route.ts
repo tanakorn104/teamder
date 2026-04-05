@@ -177,7 +177,7 @@ export async function GET(req: NextRequest) {
                 const aiPayload = await getModelInputData(p.id, userId, true);
                 
                 if (aiPayload && aiPayload.members && aiPayload.members.length > 0) {
-                    const aiRes = await fetch("https://dev.teamder.online/model/predict", {
+                    const aiRes = await fetch(process.env.TeamderNginxServiceURI+"/model/predict", {
                         method: "POST",
                         headers: { 
                             "Content-Type": "application/json", 

@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-  ],
+, "src/app/createteam/addproject", "src/app/api/testdb"  ],
   "exclude": ["node_modules"]
 }
