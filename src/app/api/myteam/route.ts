@@ -83,7 +83,9 @@ export async function GET(req: NextRequest) {
                 try {
                     const aiPayload = await getModelInputData(p.id, userId, true);
                     if (aiPayload && aiPayload.members && aiPayload.members.length > 0) {
-                        const aiRes = await fetch("https://dev.teamder.online/model/predict", {
+                        const baseUrl = new URL(req.url).origin;
+                        const aiServiceUrl = process.env.TeamderNginxServiceURI|| baseUrl;
+                        const aiRes = await fetch(`${aiServiceUrl}/model/predict`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json", "X-API-Key": process.env.lightGBM_X_API_KEY || "" },
                             body: JSON.stringify(aiPayload)
