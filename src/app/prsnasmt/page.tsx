@@ -24,7 +24,7 @@ export default function Page() {
   const [isFinished, setIsFinished] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
 
-  // 🚀 อย่าลืมเปลี่ยนเป็นรับค่าจากระบบ Login ของคุณเวลาใช้งานจริง
+  // 🚀 ดึง USER_ID จากระบบของคุณ (ตัวอย่าง)
   const USER_ID = 9906; 
 
   useEffect(() => {
@@ -33,18 +33,20 @@ export default function Page() {
         const res = await fetch("/api/prsnasmt");
         const json = await res.json();
 
-        // 🚀 ถ้าระบบบอกว่าเคยทำไปแล้ว ให้เด้งกลับหน้าแรกทันที
         if (json.alreadyCompleted) {
             alert("คุณได้ทำแบบประเมินบุคลิกภาพไปแล้วครับ ระบบจะพากลับไปหน้าหลัก");
             router.push("/");
             return;
         }
 
-        const sortedJson = [...json.data].sort((a: any, b: any) => a.cat.localeCompare(b.cat));
-        setQuestions(sortedJson);
-        
-        // 🚀 แก้ไขเออเร่อ TypeScript ตรงนี้โดยใช้ Array.from()
-        setCategories(Array.from(new Set(sortedJson.map((item: any) => item.cat as string))));
+        // ✅ แก้ไข: เปลี่ยนจาก json.data เป็น json.questions ให้ตรงกับ API หลังบ้าน
+        if (json.success && json.questions) {
+            const rawData = json.questions;
+            const sortedJson = [...rawData].sort((a: any, b: any) => a.cat.localeCompare(b.cat));
+            
+            setQuestions(sortedJson);
+            setCategories(Array.from(new Set(sortedJson.map((item: any) => item.cat as string))));
+        }
 
       } catch (err) {
         console.error("Failed to load", err);
@@ -59,7 +61,7 @@ export default function Page() {
     const newAnswer: UserAnswer = {
       questionId: id,
       cat: category,
-      points: point // ส่งไปเป็นตัวเลขเสมอ
+      points: point
     };
 
     const updatedAnswers = [...userAnswers, newAnswer];
@@ -88,7 +90,7 @@ export default function Page() {
 
       if (res.ok) {
         alert("บันทึกผลการประเมินเรียบร้อยแล้ว!");
-        router.push("/"); // 🚀 กลับหน้าหลักเมื่อส่งสำเร็จ
+        router.push("/"); 
       } else {
         const errorData = await res.json();
         console.error("Server Error:", errorData);
@@ -99,7 +101,6 @@ export default function Page() {
     }
   };
 
-  // แสดง Loading ตอนกำลังเช็คว่าเคยทำหรือยัง
   if (isChecking) return <div className="min-h-screen flex items-center justify-center bg-background">กำลังตรวจสอบข้อมูล...</div>;
   if (questions.length === 0) return null;
   if (isFinished) return <div className="min-h-screen flex items-center justify-center bg-background text-brand-5 font-bold text-xl">กำลังบันทึกข้อมูล...</div>;
@@ -130,13 +131,16 @@ export default function Page() {
         </div>
 
         <div className="w-full mt-10 flex flex-col gap-4">
-          {Object.entries(currentQuestion.ans).map(([scoreKey, choiceText]) => (
+          {/* ✅ ใช้ Object.entries และเรียงลำดับคำตอบ (5 ไป 1) */}
+          {Object.entries(currentQuestion.ans)
+            .sort((a, b) => Number(b[1]) - Number(a[1]))
+            .map(([choiceText, scoreValue]) => (
             <button
-              key={scoreKey}
-              onClick={() => handleNext(currentQuestion.id, Number(scoreKey), currentQuestion.cat)}
+              key={choiceText}
+              onClick={() => handleNext(currentQuestion.id, Number(scoreValue), currentQuestion.cat)}
               className="w-full bg-white text-brand-5 text-base font-semibold py-4 px-6 rounded-xl border-[1.5px] border-brand-5 shadow-[2px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all text-left"
             >
-              {choiceText as string}
+              {choiceText}
             </button>
           ))}
         </div>
